@@ -1,2 +1,12 @@
-# sofia_planner
-Use this to plan your life
+https://sofiaui-production.up.railway.app
+
+
+![alt text](image-1.png)
+
+![alt text](image1.png)
+
+![alt text](image-3.png)
+
+![alt text](image-2.png)
+
+![alt text](image.png)
