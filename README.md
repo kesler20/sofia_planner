@@ -1,5 +1,4 @@
-https://sofiaui-production.up.railway.app
-
+https://kesler20.github.io/sofia_planner/
 
 ![alt text](image-1.png)
 
