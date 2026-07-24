@@ -10,7 +10,7 @@ import { useCachedValue } from "../../utils";
 export default function NavbarComponent() {
   const [currentView, setCurrentView] = useCachedValue<ValidViews>(
     "global",
-    "shopping",
+    "diet",
     "currentView"
   );
   const [currentPage, setCurrentPage] = useCachedValue<string>(

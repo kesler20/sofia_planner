@@ -1,14 +1,14 @@
 import { Table } from "./Table";
 import { RiDeleteBin6Line } from "react-icons/ri";
-import { DishAttributeType, DishType } from "../../types";
+import { FoodAttributeType, FoodType } from "../../types";
 
-export default function DishesTable(props: {
-  dishes: DishType[];
+export default function FoodsTable(props: {
+  foods: FoodType[];
   onDeleteFood: (foodName: string) => void;
   onChangeFood: (
     foodName: string,
-    foodAttribute: DishAttributeType,
-    value: number | string
+    foodAttribute: FoodAttributeType,
+    value: number | string | null
   ) => void;
 }) {
   return (
@@ -18,12 +18,14 @@ export default function DishesTable(props: {
           <th>Name</th>
           <th>Calories (Kcal)</th>
           <th>Protein (g)</th>
+          <th>Carbs (g)</th>
+          <th>Fat (g)</th>
           <th>Cost (£)</th>
           <th>Amount (g)</th>
           <th>Vendor</th>
           <th>Delete</th>
         </tr>
-        {props.dishes.map((food, foodId) => {
+        {props.foods.map((food, foodId) => {
           return (
             <tr key={foodId} className="pointer-cursor">
               <td>{food.name}</td>
@@ -51,9 +53,34 @@ export default function DishesTable(props: {
                 <input
                   type="number"
                   className="text-center"
-                  value={food.cost}
+                  value={food.carbs}
                   onChange={(e) =>
-                    props.onChangeFood(food.name, "cost", Number(e.target.value))
+                    props.onChangeFood(food.name, "carbs", Number(e.target.value))
+                  }
+                />
+              </td>
+              <td>
+                <input
+                  type="number"
+                  className="text-center"
+                  value={food.fat}
+                  onChange={(e) =>
+                    props.onChangeFood(food.name, "fat", Number(e.target.value))
+                  }
+                />
+              </td>
+              <td>
+                <input
+                  type="number"
+                  className="text-center"
+                  placeholder="unmatched"
+                  value={food.cost ?? ""}
+                  onChange={(e) =>
+                    props.onChangeFood(
+                      food.name,
+                      "cost",
+                      e.target.value === "" ? null : Number(e.target.value)
+                    )
                   }
                 />
               </td>
@@ -71,9 +98,14 @@ export default function DishesTable(props: {
                 <input
                   type="text"
                   className="text-center"
-                  value={food.vendor}
+                  placeholder="unmatched"
+                  value={food.vendor ?? ""}
                   onChange={(e) =>
-                    props.onChangeFood(food.name, "vendor", e.target.value)
+                    props.onChangeFood(
+                      food.name,
+                      "vendor",
+                      e.target.value === "" ? null : e.target.value
+                    )
                   }
                 />
               </td>

@@ -1,14 +1,14 @@
 import React from "react";
 import CustomModal from "../../components/modal/CustomModal";
 import { MenuItem, Select } from "@mui/material";
-import { DietType, DishType, WeekdayType } from "../../types";
+import { DietType, MealType, WeekdayType } from "../../types";
 import { IoIosAdd, IoIosRemove } from "react-icons/io";
-import { readResourceInDb, useCachedValue, useStoredValue } from "../../utils";
+import { useCachedValue, useStoredValue } from "../../utils";
 import toastFactory, {
   MessageSeverity,
 } from "../../components/notification/ToastMessages";
 
-function Card(props: {
+export function Card(props: {
   className?: string;
   children?: React.ReactNode;
   onClick?: () => void;
@@ -57,7 +57,7 @@ export function CardSectionDivider(props: { title: string }) {
   );
 }
 
-const defaultDietPlan: DietType = {
+const emptyWeekPlan: DietType["meals"] = {
   Monday: [],
   Tuesday: [],
   Wednesday: [],
@@ -67,15 +67,21 @@ const defaultDietPlan: DietType = {
   Sunday: [],
 };
 
-type DietData = { calories: number; protein: number; cost: number };
+const defaultDiets: DietType[] = [
+  { name: "Default", active: true, finalizedAt: null, meals: emptyWeekPlan },
+];
+
+type DietData = { calories: number; protein: number; cost: number; tasteScore: number };
 
 export default function Diet() {
   const email = localStorage.getItem("global/email") || "guest";
-  const [dietPlan, setDietPlan] = useStoredValue<DietType>(
+  const [diets, setDiets] = useStoredValue<DietType[]>(
     email,
-    defaultDietPlan,
-    "diet_plan"
+    defaultDiets,
+    "diets"
   );
+  const activeDiet = diets.find((d) => d.active) ?? diets[0];
+
   // Infer today's weekday as default
   const jsDayToWeekday: WeekdayType[] = [
     "Sunday",
@@ -86,159 +92,177 @@ export default function Diet() {
     "Friday",
     "Saturday",
   ];
-  const [selectDishModalOpen, setSelectDishModalOpen] = React.useState(false);
+  const [selectMealModalOpen, setSelectMealModalOpen] = React.useState(false);
+  const [newDietName, setNewDietName] = React.useState("");
   const today = new Date();
   const todayWeekday = jsDayToWeekday[today.getDay()];
   const [currentDay, setCurrentDay] = React.useState<WeekdayType>(todayWeekday);
-  const [foodsFromDb, setFoodsFromDb] = useCachedValue<DishType[]>(
-    email,
-    [],
-    "dishes"
-  );
+  const [mealsFromDb] = useCachedValue<MealType[]>(email, [], "meals");
   const [currentDayTotal, setCurrentDayTotal] = React.useState<DietData>({
     calories: 0,
     protein: 0,
     cost: 0,
+    tasteScore: 0,
   });
   const [weeklyTotal, setWeeklyTotal] = React.useState<DietData>({
     calories: 0,
     protein: 0,
     cost: 0,
+    tasteScore: 0,
   });
-  const [selectedFoods, setSelectedFoods] = React.useState<DishType[]>([]);
+  const [selectedMeals, setSelectedMeals] = React.useState<MealType[]>([]);
 
-  React.useEffect(() => {
-    calculateTotal();
-    readResourceInDb<string>(email, "dishes").then(({ result, error }) => {
-      if (error) {
-        console.error("Error reading dishes from serverless DB", error);
-        toastFactory(
-          "Failed to load dishes from database",
-          MessageSeverity.ERROR
-        );
-      }
-      if (result) {
-        const parsed = JSON.parse(result);
-        console.info("Successfully read dishes from serverless DB", parsed);
-        setFoodsFromDb(parsed);
-      }
+  const updateActiveDiet = (updater: (diet: DietType) => DietType) => {
+    setDiets((prev) =>
+      prev.map((d) => (d.name === activeDiet.name ? updater(d) : d))
+    );
+  };
+
+  const averageTasteScore = (meals: MealType[]) =>
+    meals.length
+      ? meals.reduce((sum, m) => sum + m.tasteScore, 0) / meals.length
+      : 0;
+
+  const calculateTotal = React.useCallback(() => {
+    const dayMeals = activeDiet.meals[currentDay];
+    const dailyTotal = { calories: 0, protein: 0, cost: 0 };
+    dayMeals.forEach((meal: MealType) => {
+      meal.foods.forEach((food) => {
+        dailyTotal.calories += food.calories;
+        dailyTotal.protein += food.protein;
+        dailyTotal.cost += food.cost ?? 0;
+      });
     });
-  }, []);
+    setCurrentDayTotal({ ...dailyTotal, tasteScore: averageTasteScore(dayMeals) });
+
+    const weekTotal = { calories: 0, protein: 0, cost: 0 };
+    let allMeals: MealType[] = [];
+    Object.keys(activeDiet.meals).forEach((day) => {
+      const meals = activeDiet.meals[day as WeekdayType];
+      allMeals = allMeals.concat(meals);
+      meals.forEach((meal: MealType) => {
+        meal.foods.forEach((food) => {
+          weekTotal.calories += food.calories;
+          weekTotal.protein += food.protein;
+          weekTotal.cost += food.cost ?? 0;
+        });
+      });
+    });
+    setWeeklyTotal({ ...weekTotal, tasteScore: averageTasteScore(allMeals) });
+  }, [activeDiet, currentDay]);
 
   React.useEffect(() => {
     calculateTotal();
-    setSelectedFoods([]);
+  }, [calculateTotal]);
+
+  React.useEffect(() => {
+    setSelectedMeals([]);
   }, [currentDay]);
 
   // listen to the copy and paste events
   React.useEffect(() => {
-    document.addEventListener("copy", copySelectedFoodsToClipboard);
-    document.addEventListener("paste", pasteSelectedFoodsFromClipboard);
+    document.addEventListener("copy", copySelectedMealsToClipboard);
+    document.addEventListener("paste", pasteSelectedMealsFromClipboard);
 
     return () => {
-      document.removeEventListener("copy", copySelectedFoodsToClipboard);
-      document.removeEventListener("paste", pasteSelectedFoodsFromClipboard);
+      document.removeEventListener("copy", copySelectedMealsToClipboard);
+      document.removeEventListener("paste", pasteSelectedMealsFromClipboard);
     };
-  }, [selectedFoods]);
+  }, [selectedMeals]);
 
-  const copySelectedFoodsToClipboard = () => {
-    if (!selectedFoods.length) {
-      toastFactory("Select a dish before copying.", MessageSeverity.WARNING);
+  const copySelectedMealsToClipboard = () => {
+    if (!selectedMeals.length) {
+      toastFactory("Select a meal before copying.", MessageSeverity.WARNING);
       return;
     }
-    const text = selectedFoods.map((food: DishType) => food.name).join(", ");
+    const text = selectedMeals.map((meal: MealType) => meal.name).join(", ");
     navigator.clipboard.writeText(text);
-    toastFactory("Copied Dish to clipboard", MessageSeverity.SUCCESS);
+    toastFactory("Copied meal to clipboard", MessageSeverity.SUCCESS);
   };
 
-  const pasteSelectedFoodsFromClipboard = async () => {
+  const pasteSelectedMealsFromClipboard = async () => {
     const text = await navigator.clipboard.readText();
-    const foodNamesCopiedToClipboard = text.split(", ");
-    setDietPlan((prev: DietType) => {
-      return {
-        ...prev,
+    const mealNamesCopiedToClipboard = text.split(", ");
+    updateActiveDiet((diet) => ({
+      ...diet,
+      meals: {
+        ...diet.meals,
         [currentDay]: [
-          ...prev[currentDay as WeekdayType],
-          ...foodNamesCopiedToClipboard.map((foodName) => {
-            if (
-              prev[currentDay as WeekdayType].some(
-                (item: DishType) => item.name === foodName
-              )
-            ) {
-              return;
-            }
-
-            return foodsFromDb.find((f: DishType) => f.name === foodName);
-          }),
-        ].filter(Boolean) as DishType[],
-      } as DietType;
-    });
+          ...diet.meals[currentDay],
+          ...mealNamesCopiedToClipboard
+            .map((mealName) => {
+              if (diet.meals[currentDay].some((m) => m.name === mealName)) {
+                return;
+              }
+              return mealsFromDb.find((m: MealType) => m.name === mealName);
+            })
+            .filter(Boolean),
+        ] as MealType[],
+      },
+    }));
   };
 
-  const calculateTotal = () => {
-    let dailyTotal = {
-      calories: 0,
-      protein: 0,
-      cost: 0,
-    };
-    dietPlan[currentDay].forEach((food: DishType) => {
-      dailyTotal.calories += food.calories;
-      dailyTotal.protein += food.protein;
-      dailyTotal.cost += food.cost;
-    });
-
-    setCurrentDayTotal(dailyTotal);
-
-    let weekTotal = {
-      calories: 0,
-      protein: 0,
-      cost: 0,
-    };
-    Object.keys(dietPlan).forEach((day) => {
-      dietPlan[day as WeekdayType].forEach((food: DishType) => {
-        weekTotal.calories += food.calories;
-        weekTotal.protein += food.protein;
-        weekTotal.cost += food.cost;
-      });
-    });
-    setWeeklyTotal(weekTotal);
-  };
-
-  const addFoodToDiet = (food: DishType) => {
-    setDietPlan((prev: DietType) => {
-      if (
-        prev[currentDay as WeekdayType].some(
-          (item: DishType) => item.name === food.name
-        )
-      ) {
-        return prev; // Return the previous state if the food already exists
+  const addMealToDiet = (meal: MealType) => {
+    updateActiveDiet((diet) => {
+      if (diet.meals[currentDay].some((m) => m.name === meal.name)) {
+        return diet;
       }
       return {
-        ...prev,
-        [currentDay]: [...prev[currentDay as WeekdayType], food],
-      } as DietType;
+        ...diet,
+        meals: {
+          ...diet.meals,
+          [currentDay]: [...diet.meals[currentDay], meal],
+        },
+      };
     });
   };
 
-  const removedFoodFromDiet = (food: DishType) => {
-    setDietPlan((prev: DietType) => {
-      return {
-        ...prev,
-        [currentDay]: prev[currentDay as WeekdayType].filter(
-          (item: DishType) => item.name !== food.name
-        ) as DishType[],
-      } as DietType;
-    });
+  const removeMealFromDiet = (meal: MealType) => {
+    updateActiveDiet((diet) => ({
+      ...diet,
+      meals: {
+        ...diet.meals,
+        [currentDay]: diet.meals[currentDay].filter((m) => m.name !== meal.name),
+      },
+    }));
   };
 
-  const toggleFoodSelection = (food: DishType) => {
-    setSelectedFoods((prev: DishType[]) => {
-      if (prev.some((item: DishType) => item.name === food.name)) {
-        return prev.filter((item: DishType) => item.name !== food.name);
-      } else {
-        return [...prev, food];
-      }
-    });
+  const toggleMealSelection = (meal: MealType) => {
+    setSelectedMeals((prev) =>
+      prev.some((m) => m.name === meal.name)
+        ? prev.filter((m) => m.name !== meal.name)
+        : [...prev, meal]
+    );
+  };
+
+  const switchActiveDiet = (dietName: string) => {
+    setDiets((prev) => prev.map((d) => ({ ...d, active: d.name === dietName })));
+  };
+
+  const createDiet = () => {
+    if (!newDietName || diets.some((d) => d.name === newDietName)) {
+      toastFactory(
+        "Give the new diet a unique name.",
+        MessageSeverity.WARNING
+      );
+      return;
+    }
+    setDiets((prev) => [
+      ...prev.map((d) => ({ ...d, active: false })),
+      { name: newDietName, active: true, finalizedAt: null, meals: emptyWeekPlan },
+    ]);
+    setNewDietName("");
+  };
+
+  const generateShoppingList = () => {
+    updateActiveDiet((diet) => ({
+      ...diet,
+      finalizedAt: new Date().toISOString(),
+    }));
+    toastFactory(
+      "Diet finalized — Cristiano Ronaldo's next run will export the shopping list.",
+      MessageSeverity.SUCCESS
+    );
   };
 
   // Map WeekdayType to JS day index
@@ -274,13 +298,48 @@ export default function Diet() {
 
   return (
     <div className="w-full flex flex-col items-center justify-start h-[70vh] mt-12">
+      {/* Diet selector */}
+      <Card className="min-w-[300px] w-1/2 max-w-[900px] mt-4 bg-white p-2">
+        <div className="w-full flex justify-evenly items-center flex-wrap gap-2 py-2">
+          <Select
+            value={activeDiet.name}
+            onChange={(event: any) => switchActiveDiet(event.target.value)}
+          >
+            {diets.map((diet, index) => (
+              <MenuItem key={index} value={diet.name}>
+                {diet.name}
+                {diet.finalizedAt ? " (finalized)" : ""}
+              </MenuItem>
+            ))}
+          </Select>
+          <input
+            className="border-b text-center"
+            placeholder="New diet name"
+            value={newDietName}
+            onChange={(e) => setNewDietName(e.target.value)}
+          />
+          <button
+            className="bg-gray-600 text-white rounded-2xl px-3 py-1"
+            onClick={createDiet}
+          >
+            + New Diet
+          </button>
+          <button
+            className="bg-gray-600 text-white rounded-2xl px-3 py-1"
+            onClick={generateShoppingList}
+          >
+            Generate Shopping List
+          </button>
+        </div>
+      </Card>
+
       {/* Main Card */}
       <Card className="min-w-[300px] w-1/2 max-w-[900px] mt-4 bg-white p-2">
         {/* Card Header with the button and the Dropdown */}
         <div className="w-full flex justify-evenly items-center">
           <CardTitle
             title={`Add Meals for ${currentDay}`}
-            onClick={() => setSelectDishModalOpen(true)}
+            onClick={() => setSelectMealModalOpen(true)}
           />
 
           <h3
@@ -300,7 +359,7 @@ export default function Diet() {
               setCurrentDay(event.target.value as WeekdayType);
             }}
           >
-            {Object.keys(dietPlan).map((day, index) => (
+            {Object.keys(activeDiet.meals).map((day, index) => (
               <MenuItem key={index} value={day}>
                 {day}
               </MenuItem>
@@ -308,49 +367,55 @@ export default function Diet() {
           </Select>
         </div>
 
-        {/* Card Body with the selected dishes */}
-        <CardSectionDivider title="Selected Dishes" />
+        {/* Card Body with the selected meals */}
+        <CardSectionDivider title="Selected Meals" />
         <div className="flex w-full items-center justify-between px-2 mt-2">
-          {selectedFoods.length > 0 && (
+          {selectedMeals.length > 0 && (
             <button
               type="button"
               className="text-xs text-blue-500 underline"
-              onClick={() => setSelectedFoods([])}
+              onClick={() => setSelectedMeals([])}
             >
               Clear selection
             </button>
           )}
         </div>
         <div className="w-full max-h-[400px] my-8 flex flex-col justify-center overflow-y-scroll custom-scrollbar overflow-x-hidden">
-          {dietPlan[currentDay].map((food: DishType) => {
-            const isFoodSelected = selectedFoods.some(
-              (item: DishType) => item.name === food.name
+          {activeDiet.meals[currentDay].map((meal: MealType) => {
+            const isMealSelected = selectedMeals.some(
+              (item: MealType) => item.name === meal.name
             );
+            const mealCalories = meal.foods.reduce((s, f) => s + f.calories, 0);
+            const mealProtein = meal.foods.reduce((s, f) => s + f.protein, 0);
+            const mealCost = meal.foods.reduce((s, f) => s + (f.cost ?? 0), 0);
             return (
               <Card
-                key={food.name}
+                key={meal.name}
                 className={`text-gray-500 p-2 pl-8 hover:glow ${
-                  isFoodSelected ? "bg-blue-100" : ""
+                  isMealSelected ? "bg-blue-100" : ""
                 }`}
-                onClick={() => toggleFoodSelection(food)}
+                onClick={() => toggleMealSelection(meal)}
               >
                 <div className="w-full flex justify-between">
                   <div className="flex items-center gap-3">
-                    <p className="text-gray-600 font-bold">{food.name}</p>
+                    <p className="text-gray-600 font-bold">{meal.name}</p>
                   </div>
                   <IoIosRemove
                     size={30}
                     className="cursor-pointer"
                     onClick={(event) => {
                       event.stopPropagation();
-                      removedFoodFromDiet(food);
+                      removeMealFromDiet(meal);
                     }}
                   />
                 </div>
-                <p>Calories: {food.calories} (kcal)</p>
-                <p>Protein: {food.protein} (g)</p>
-                <p>Cost: {food.cost} (£)</p>
-                <p>{food.vendor}</p>
+                <p>Calories: {mealCalories} (kcal)</p>
+                <p>Protein: {mealProtein} (g)</p>
+                <p>Cost: {mealCost} (£)</p>
+                <p>Taste Score: {meal.tasteScore}/10</p>
+                <p className="text-xs">
+                  {meal.foods.map((f) => f.name).join(", ")}
+                </p>
               </Card>
             );
           })}
@@ -363,6 +428,7 @@ export default function Diet() {
             <p>Calories: {currentDayTotal.calories} (kcal)</p>
             <p>Protein: {currentDayTotal.protein} (g)</p>
             <p>Cost: {currentDayTotal.cost} (£)</p>
+            <p>Avg Taste Score: {currentDayTotal.tasteScore.toFixed(1)}/10</p>
           </div>
         </Card>
       </Card>
@@ -374,11 +440,12 @@ export default function Diet() {
           <p>Calories: {weeklyTotal.calories} (kcal)</p>
           <p>Protein: {weeklyTotal.protein} (g)</p>
           <p>Cost: {weeklyTotal.cost} (£)</p>
+          <p>Avg Taste Score: {weeklyTotal.tasteScore.toFixed(1)}/10</p>
         </div>
       </Card>
 
       <CustomModal
-        open={selectDishModalOpen}
+        open={selectMealModalOpen}
         sections={[
           {
             name: "Search Meal",
@@ -388,28 +455,25 @@ export default function Diet() {
         ]}
         body={
           <div className="flex h-[150px] w-[210px] flex-col justify-between items-center overflow-x-hidden overflow-y-scroll custom-scrollbar">
-            {foodsFromDb.map((food: DishType) => {
+            {mealsFromDb.map((meal: MealType) => {
               return (
-                <Card className="text-gray-500 mb-2 mx-2 p-2 pl-8">
+                <Card className="text-gray-500 mb-2 mx-2 p-2 pl-8" key={meal.name}>
                   <div className="w-full flex justify-between">
-                    <p className="text-gray-600 font-bold">{food.name}</p>
+                    <p className="text-gray-600 font-bold">{meal.name}</p>
                     <IoIosAdd
                       size={30}
                       className="cursor-pointer"
-                      onClick={() => addFoodToDiet(food)}
+                      onClick={() => addMealToDiet(meal)}
                     />
                   </div>
-                  <p>Calories: {food.calories} (kcal)</p>
-                  <p>Protein: {food.protein} (g)</p>
-                  <p>Cost: {food.cost} (£)</p>
-                  <p>{food.vendor}</p>
+                  <p>Taste Score: {meal.tasteScore}/10</p>
                 </Card>
               );
             })}
           </div>
         }
         onSubmit={() => console.log("submit")}
-        handleClose={() => setSelectDishModalOpen(false)}
+        handleClose={() => setSelectMealModalOpen(false)}
       />
     </div>
   );

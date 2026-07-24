@@ -1,28 +1,28 @@
 import React from "react";
 import MainButton from "../../components/button/MainButton";
-import { DishAttributeType, DishType } from "../../types";
-import DishesTable from "../../components/table/FoodTable";
+import { FoodAttributeType, FoodType } from "../../types";
+import FoodsTable from "../../components/table/FoodTable";
 import { createResourceInDb, readResourceInDb, useCachedValue } from "../../utils";
 import toastFactory, {
   MessageSeverity,
 } from "../../components/notification/ToastMessages";
 
-export default function Meal() {
+export default function Foods() {
   const email = localStorage.getItem("global/email") || "guest";
-  const [foodsFromDb, setFoodsFromDb] = useCachedValue<DishType[]>(
+  const [foodsFromDb, setFoodsFromDb] = useCachedValue<FoodType[]>(
     email,
     [],
-    "dishes"
+    "foods"
   );
 
   // this state is required to allow the user to edit multiple foods at once and then update
-  const [foodsChanged, setFoodsChanged] = React.useState<DishType[]>([]);
+  const [foodsChanged, setFoodsChanged] = React.useState<FoodType[]>([]);
 
   React.useEffect(() => {
-    readResourceInDb<string>(email, "dishes").then(({ result, error }) => {
+    readResourceInDb<string>(email, "foods").then(({ result, error }) => {
       if (error) {
-        console.error("Error reading dishes from serverless DB", error);
-        toastFactory("Failed to load dishes from database", MessageSeverity.ERROR);
+        console.error("Error reading foods from serverless DB", error);
+        toastFactory("Failed to load foods from database", MessageSeverity.ERROR);
       }
       if (result) {
         const parsed = JSON.parse(result);
@@ -33,8 +33,8 @@ export default function Meal() {
 
   const deleteFood = (foodName: string) => {
     try {
-      setFoodsFromDb((prev: DishType[]) =>
-        prev.filter((f: DishType) => f.name !== foodName)
+      setFoodsFromDb((prev: FoodType[]) =>
+        prev.filter((f: FoodType) => f.name !== foodName)
       );
     } catch (error) {
       console.error(error);
@@ -43,18 +43,18 @@ export default function Meal() {
 
   const editFood = (
     foodName: string,
-    foodAttribute: DishAttributeType,
-    value: number | string
+    foodAttribute: FoodAttributeType,
+    value: number | string | null
   ) => {
-    const foodToUpdate = foodsFromDb.find((f: DishType) => f.name === foodName);
+    const foodToUpdate = foodsFromDb.find((f: FoodType) => f.name === foodName);
     if (!foodToUpdate) {
       return;
     }
 
-    (foodToUpdate[foodAttribute as keyof DishType] as typeof value) = value;
+    (foodToUpdate[foodAttribute as keyof FoodType] as typeof value) = value;
 
     setFoodsFromDb(
-      foodsFromDb.map((food: DishType) => {
+      foodsFromDb.map((food: FoodType) => {
         if (food.name === foodName) {
           return foodToUpdate;
         }
@@ -66,9 +66,9 @@ export default function Meal() {
   };
 
   const saveChanges = () => {
-    createResourceInDb<DishType[]>(
+    createResourceInDb<FoodType[]>(
       email,
-      "dishes",
+      "foods",
       JSON.stringify(foodsFromDb)
     ).then(({ result, error }) => {
       if (error) {
@@ -85,8 +85,8 @@ export default function Meal() {
   return (
     <div className="w-full flex flex-col justify-start items-center h-[70vh] mt-24">
       <div className="min-w-[300px] w-[60%] max-w-[1100px] overflow-x-scroll">
-        <DishesTable
-          dishes={foodsFromDb}
+        <FoodsTable
+          foods={foodsFromDb}
           onDeleteFood={deleteFood}
           onChangeFood={editFood}
         />

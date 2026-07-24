@@ -1,5 +1,5 @@
 import React from "react";
-import { DishType } from "../../types";
+import { FoodType } from "../../types";
 import CustomForm from "../../components/forms/CustomForm";
 import toastFactory, {
   MessageSeverity,
@@ -8,28 +8,30 @@ import { useStoredValue } from "../../utils";
 import LoadingAnimation from "../../components/LoadingAnimation";
 
 export default function Dish() {
-  const [dish, setFood] = React.useState<DishType>({
+  const [food, setFood] = React.useState<FoodType>({
     name: "",
     calories: 0,
     protein: 0,
-    cost: 0,
+    carbs: 0,
+    fat: 0,
+    cost: null,
     amount: 0,
-    vendor: "",
+    vendor: null,
   });
   const email = localStorage.getItem("global/email") || "guest";
-  const [dishesFromDb, setDishesFromDb, isLoading] = useStoredValue<DishType[]>(
+  const [foodsFromDb, setFoodsFromDb, isLoading] = useStoredValue<FoodType[]>(
     email,
     [],
-    "dishes"
+    "foods"
   );
   if (isLoading) {
     return <LoadingAnimation />;
   }
 
-  const createDish = () => {
+  const createFood = () => {
     try {
-      setDishesFromDb([...dishesFromDb, dish]);
-      toastFactory("Dish created successfully", MessageSeverity.SUCCESS);
+      setFoodsFromDb([...foodsFromDb, food]);
+      toastFactory("Food created successfully", MessageSeverity.SUCCESS);
     } catch (error) {
       toastFactory("Failed to create food", MessageSeverity.ERROR);
       console.error(error);
@@ -52,39 +54,57 @@ export default function Dish() {
         <CustomForm
           sections={[
             {
-              name: "Dish Name",
-              value: dish.name,
-              onChange: (e) => setFood({ ...dish, name: e.target.value }),
+              name: "Food Name",
+              value: food.name,
+              onChange: (e) => setFood({ ...food, name: e.target.value }),
             },
             {
               name: "Calories (Kcal)",
-              value: dish.calories,
+              value: food.calories,
               onChange: (e) =>
-                setFood({ ...dish, calories: Number(e.target.value) }),
+                setFood({ ...food, calories: Number(e.target.value) }),
             },
             {
               name: "Protein (g)",
-              value: dish.protein,
-              onChange: (e) => setFood({ ...dish, protein: Number(e.target.value) }),
+              value: food.protein,
+              onChange: (e) => setFood({ ...food, protein: Number(e.target.value) }),
             },
             {
-              name: "Cost (£)",
-              value: dish.cost,
-              onChange: (e) => setFood({ ...dish, cost: Number(e.target.value) }),
+              name: "Carbs (g)",
+              value: food.carbs,
+              onChange: (e) => setFood({ ...food, carbs: Number(e.target.value) }),
+            },
+            {
+              name: "Fat (g)",
+              value: food.fat,
+              onChange: (e) => setFood({ ...food, fat: Number(e.target.value) }),
+            },
+            {
+              name: "Cost (£, leave blank until matched from a receipt)",
+              value: food.cost ?? "",
+              onChange: (e) =>
+                setFood({
+                  ...food,
+                  cost: e.target.value === "" ? null : Number(e.target.value),
+                }),
             },
             {
               name: "Amount (g)",
-              value: dish.amount,
-              onChange: (e) => setFood({ ...dish, amount: Number(e.target.value) }),
+              value: food.amount,
+              onChange: (e) => setFood({ ...food, amount: Number(e.target.value) }),
             },
             {
-              name: "Vendor Name",
-              value: dish.vendor,
-              onChange: (e) => setFood({ ...dish, vendor: e.target.value }),
+              name: "Vendor Name (leave blank until matched from a receipt)",
+              value: food.vendor ?? "",
+              onChange: (e) =>
+                setFood({
+                  ...food,
+                  vendor: e.target.value === "" ? null : e.target.value,
+                }),
             },
           ]}
           longer={true}
-          onSubmit={() => createDish()}
+          onSubmit={() => createFood()}
         />
       </div>
     </div>

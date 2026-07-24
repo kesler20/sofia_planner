@@ -62,7 +62,7 @@ jobs:
       - name: Build
         run: pnpm run build
         env:
-          VITE_PROD_BACKEND_URL: https://headless-backend-mbvv.onrender.com/resources
+          VITE_PROD_BACKEND_URL: https://sofia-headless-backend.fly.dev/resources
 
       - name: Create SPA fallback (404.html)
         run: cp build/index.html build/404.html
