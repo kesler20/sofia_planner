@@ -313,10 +313,16 @@ function MonthlyTable(props: { data: MonthlyAllocation[] }) {
   );
 }
 
+function principalAtYear(year: number, params: InvestmentParams) {
+  return params.principal + params.monthlyContribution * year * 12;
+}
+
 function ForecastChart(props: {
   params: InvestmentParams;
   onEventChangeParam: (field: keyof InvestmentParams, value: number) => void;
 }) {
+  const [selectedYear, setSelectedYear] = React.useState<number | null>(null);
+
   const projectionData = React.useMemo(() => {
     const data: ProjectionDataPoint[] = [];
     for (let year = 0; year <= props.params.years; year++) {
@@ -385,6 +391,11 @@ function ForecastChart(props: {
         <AreaChart
           data={projectionData}
           margin={{ top: 10, right: 20, left: 0, bottom: 0 }}
+          onClick={(state) => {
+            if (state && state.activeLabel != null) {
+              setSelectedYear(Number(state.activeLabel));
+            }
+          }}
         >
           <defs>
             <linearGradient id="optG" x1="0" y1="0" x2="0" y2="1">
@@ -494,6 +505,74 @@ function ForecastChart(props: {
         {(props.params.inflationRate * 100).toFixed(1)}%) with reinvested dividends (
         {(DIVIDEND_YIELD * 100).toFixed(1)}% yield). Shows real purchasing power.
       </div>
+
+      {/* Principal vs Interest Breakdown (click a point on the chart) */}
+      {selectedYear !== null && (
+        <div className="mt-5">
+          <h3 className="text-sm font-bold text-gray-700 mb-3">
+            Year {selectedYear} Breakdown
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {(
+              [
+                {
+                  key: "pessimistic",
+                  label: "Conservative 7%",
+                  bg: "bg-orange-50",
+                  border: "border-orange-200",
+                  text: "text-orange-600",
+                  strong: "text-orange-700",
+                },
+                {
+                  key: "expected",
+                  label: "Expected 10%",
+                  bg: "bg-blue-50",
+                  border: "border-blue-200",
+                  text: "text-blue-600",
+                  strong: "text-blue-700",
+                },
+                {
+                  key: "optimistic",
+                  label: "Best Case 12%",
+                  bg: "bg-green-50",
+                  border: "border-green-200",
+                  text: "text-green-600",
+                  strong: "text-green-700",
+                },
+              ] as const
+            ).map((scenario) => {
+              const total = projectionData[selectedYear]?.[scenario.key] ?? 0;
+              const principal = principalAtYear(selectedYear, props.params);
+              const interest = total - principal;
+              return (
+                <div
+                  key={scenario.key}
+                  className={`${scenario.bg} rounded-xl p-3 border ${scenario.border}`}
+                >
+                  <p
+                    className={`text-[10px] font-bold ${scenario.text} uppercase tracking-wide`}
+                  >
+                    {scenario.label}
+                  </p>
+                  <p className={`text-lg font-bold ${scenario.strong}`}>
+                    £{total.toLocaleString("en-GB", { maximumFractionDigits: 0 })}
+                  </p>
+                  <div className="mt-1 text-xs text-gray-500 space-y-0.5">
+                    <p>
+                      Principal: £
+                      {principal.toLocaleString("en-GB", { maximumFractionDigits: 0 })}
+                    </p>
+                    <p>
+                      Interest: £
+                      {interest.toLocaleString("en-GB", { maximumFractionDigits: 0 })}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </Card>
   );
 }

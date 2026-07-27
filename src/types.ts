@@ -15,6 +15,7 @@ export const FoodSchema = z.object({
   cost: z.number().nullable(),
   vendor: z.string().nullable(),
   amount: z.number(),
+  quantity: z.number().min(0).optional(),
 });
 
 export type FoodAttributeType = keyof z.infer<typeof FoodSchema>;

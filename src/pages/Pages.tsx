@@ -1,20 +1,19 @@
 import * as React from "react";
 import { Routes, Route } from "react-router-dom";
 import Foods from "./diet/Dishes";
-import Dish from "./diet/Dish";
 import Diet from "./diet/Diet";
 import Meal from "./diet/Meal";
+import EditMeal from "./diet/EditMeal";
 import BudgetsPage from "./finance/BudgetsPage";
 import VoiceEmailReader from "./inbox/VoiceEmailReader";
 import TaskTriage from "./inbox/TaskTriage";
 import InvestmentPlannerPage from "./finance/InvestmentPlannerPage";
-import BodyFatPlanner from "./diet/BodyFatPlanner";
 
 type PageMetaData = {
   name: string;
   link: string;
-  pageComponent: React.ReactNode;
-  shareComponent?: React.ReactNode;
+  pageComponent: React.ComponentType;
+  shareComponent?: React.ComponentType;
 };
 
 export type ValidViews = "diet" | "finance" | "inbox";
@@ -32,51 +31,46 @@ export const pages: Pages = {
     {
       name: "Plan Investments",
       link: "/investments",
-      pageComponent: <InvestmentPlannerPage />,
+      pageComponent: InvestmentPlannerPage,
     },
     {
       name: "Plan Finances",
       link: "/finance",
-      pageComponent: <BudgetsPage />,
+      pageComponent: BudgetsPage,
     },
   ],
   diet: [
     {
-      name: "Body Fat Planner",
-      link: "/body-fat-planner",
-      pageComponent: <BodyFatPlanner />,
-    },
-    {
       name: "Plan Diet",
       link: "/diet",
-      pageComponent: <Diet />,
+      pageComponent: Diet,
+    },
+    {
+      name: "Edit Meal",
+      link: "/edit-meal",
+      pageComponent: EditMeal,
+    },
+    {
+      name: "Create Meals",
+      link: "/meal",
+      pageComponent: Meal,
     },
     {
       name: "Edit Foods",
       link: "/dishes",
-      pageComponent: <Foods />,
-    },
-    {
-      name: "Add Food",
-      link: "/dish",
-      pageComponent: <Dish />,
-    },
-    {
-      name: "Add Meal",
-      link: "/meal",
-      pageComponent: <Meal />,
+      pageComponent: Foods,
     },
   ],
   inbox: [
     {
       name: "Voice Reader",
       link: "/inbox",
-      pageComponent: <VoiceEmailReader />,
+      pageComponent: VoiceEmailReader,
     },
     {
       name: "Task Triage",
       link: "/task-triage",
-      pageComponent: <TaskTriage />,
+      pageComponent: TaskTriage,
     },
   ],
 };
@@ -84,18 +78,21 @@ export const pages: Pages = {
 export default function Pages() {
   return (
     <Routes>
-      <Route path="/" element={<Diet />} />
+      <Route index element={<Diet />} />
       {Object.values(pages)
         .flat()
         .map((pageMetaData, index) => {
+          const PageComponent = pageMetaData.pageComponent;
+          const ShareComponent = pageMetaData.shareComponent;
+
           return (
             <React.Fragment key={index}>
-              <Route path={pageMetaData.link} element={pageMetaData.pageComponent} />
-              {pageMetaData.shareComponent && (
+              <Route path={pageMetaData.link} element={<PageComponent />} />
+              {ShareComponent && (
                 <Route
                   key={`${index}-share`}
                   path={`${pageMetaData.link}/share/:identifier`}
-                  element={pageMetaData.shareComponent}
+                  element={<ShareComponent />}
                 />
               )}
             </React.Fragment>

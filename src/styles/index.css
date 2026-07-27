@@ -46,7 +46,7 @@ code {
   display: flex;
   justify-content: center;
   align-items: center;
-  margin-top: 20%;
+  margin-top: 0%;
   /* global 94%+ browsers support */
   background: linear-gradient(
     90deg,
@@ -171,6 +171,10 @@ code {
   -ms-overflow-style: none; /* IE and Edge */
   overflow: -moz-scrollbars-none; /* Firefox */
   -webkit-overflow-scrolling: touch; /* iOS Safari */
+}
+
+.hidden-scrollbar::-webkit-scrollbar {
+  display: none;
 }
 
 /* MyComponent.css */

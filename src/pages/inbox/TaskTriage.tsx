@@ -1,4 +1,13 @@
 import * as React from "react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  CalendarClock,
+  Check,
+  Clock,
+  Trash2,
+  Undo2,
+} from "lucide-react";
 import { readResourceInDb, createResourceInDb } from "../../utils";
 
 // ====================== //
@@ -79,7 +88,20 @@ export default function TaskTriage() {
   indexRef.current = currentIndex;
 
   // ====================== //
-  //   LOAD ON MOUNT        //
+  //                        //
+  //   OBSERVE STATE        //
+  //                        //
+  // ====================== //
+
+  console.log("tasks", tasks);
+  console.log("currentIndex", currentIndex);
+  console.log("lastVoiceCommand", lastVoiceCommand);
+  console.log("isVoiceReady", isVoiceReady);
+
+  // ====================== //
+  //                        //
+  //   SIDE EFFECTS         //
+  //                        //
   // ====================== //
 
   React.useEffect(() => {
@@ -96,88 +118,6 @@ export default function TaskTriage() {
       setIsLoading(false);
     });
   }, []);
-
-  // ====================== //
-  //   PERSISTENCE          //
-  // ====================== //
-
-  const persistStatus = async (taskId: string, newStatus: TaskStatus) => {
-    const { result, error } = await readResourceInDb<string>(userEmail, RESOURCE_NAME);
-    if (error || !result) {
-      console.error("Error reading tasks from database:", error);
-      return;
-    }
-    const parsed = JSON.parse(result) as Task[];
-    const updated = parsed.map((task) =>
-      task.id !== taskId ? task : { ...task, status: newStatus },
-    );
-    const { error: writeError } = await createResourceInDb(
-      userEmail,
-      RESOURCE_NAME,
-      JSON.stringify(updated),
-    );
-    if (writeError) {
-      console.error("Error writing tasks to database:", writeError);
-    }
-  };
-
-  // ====================== //
-  //   ACTIONS              //
-  // ====================== //
-
-  const markCurrent = (status: TaskStatus) => {
-    const list = tasksRef.current;
-    const index = indexRef.current;
-    const current = list[index];
-    if (!current) return;
-
-    setTasks((prev) =>
-      prev.map((task) => (task.id !== current.id ? task : { ...task, status })),
-    );
-    persistStatus(current.id, status);
-    goNext();
-  };
-
-  const goNext = () => {
-    setCurrentIndex((prev) => Math.min(tasksRef.current.length - 1, prev + 1));
-  };
-
-  const goBack = () => {
-    setCurrentIndex((prev) => Math.max(0, prev - 1));
-  };
-
-  const handleVoiceCommand = (command: string) => {
-    const keyword = command.split(" ")[0];
-    switch (keyword) {
-      case "done":
-        markCurrent(TaskStatus.DONE);
-        break;
-      case "today":
-        markCurrent(TaskStatus.TODAY);
-        break;
-      case "postpone":
-        markCurrent(TaskStatus.POSTPONE);
-        break;
-      case "delete":
-        markCurrent(TaskStatus.DELETE);
-        break;
-      case "skip":
-        markCurrent(TaskStatus.SKIP);
-        break;
-      case "back":
-        goBack();
-        break;
-      case "next":
-        goNext();
-        break;
-      default:
-        break;
-    }
-  };
-
-  // ====================== //
-  //   VOICE CONTROL        //
-  // ====================== //
 
   React.useEffect(() => {
     const SpeechRecognitionCtor =
@@ -197,7 +137,7 @@ export default function TaskTriage() {
       if (!lastResult || !lastResult[0]) return;
       const transcript = lastResult[0].transcript.trim().toLowerCase();
       setLastVoiceCommand(transcript);
-      handleVoiceCommand(transcript);
+      handleEventVoiceCommand(transcript);
     };
 
     recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
@@ -218,7 +158,101 @@ export default function TaskTriage() {
   }, []);
 
   // ====================== //
-  //   UI                   //
+  //                        //
+  //   UI EVENT HANDLERS    //
+  //                        //
+  // ====================== //
+
+  // ------------------------------------------------------ Task
+  const handleEventPersistStatus = async (
+    taskId: string,
+    newStatus: TaskStatus
+  ) => {
+    const { result, error } = await readResourceInDb<string>(userEmail, RESOURCE_NAME);
+    if (error || !result) {
+      console.error("Error reading tasks from database:", error);
+      return;
+    }
+    const parsed = JSON.parse(result) as Task[];
+    const updated = parsed.map((task) =>
+      task.id !== taskId ? task : { ...task, status: newStatus },
+    );
+    const { error: writeError } = await createResourceInDb(
+      userEmail,
+      RESOURCE_NAME,
+      JSON.stringify(updated),
+    );
+    if (writeError) {
+      console.error("Error writing tasks to database:", writeError);
+    }
+  };
+
+  const handleEventMarkCurrent = (status: TaskStatus) => {
+    const list = tasksRef.current;
+    const index = indexRef.current;
+    const current = list[index];
+    if (!current) return;
+
+    setTasks((prev) =>
+      prev.map((task) => (task.id !== current.id ? task : { ...task, status })),
+    );
+    handleEventPersistStatus(current.id, status);
+    handleEventNext();
+  };
+
+  const handleEventNext = () => {
+    setCurrentIndex((prev) => Math.min(tasksRef.current.length - 1, prev + 1));
+  };
+
+  const handleEventBack = () => {
+    setCurrentIndex((prev) => Math.max(0, prev - 1));
+  };
+
+  const handleEventVoiceCommand = (command: string) => {
+    const keyword = command.split(" ")[0];
+    switch (keyword) {
+      case "done":
+        handleEventMarkCurrent(TaskStatus.DONE);
+        break;
+      case "today":
+        handleEventMarkCurrent(TaskStatus.TODAY);
+        break;
+      case "postpone":
+        handleEventMarkCurrent(TaskStatus.POSTPONE);
+        break;
+      case "delete":
+        handleEventMarkCurrent(TaskStatus.DELETE);
+        break;
+      case "skip":
+        handleEventMarkCurrent(TaskStatus.SKIP);
+        break;
+      case "back":
+        handleEventBack();
+        break;
+      case "next":
+        handleEventNext();
+        break;
+      default:
+        break;
+    }
+  };
+
+  // ====================== //
+  //                        //
+  //   UTILS METHODS        //
+  //                        //
+  // ====================== //
+
+  const canGoBack = () => currentIndex > 0;
+
+  const canGoNext = () => currentIndex < tasks.length - 1;
+
+  const isCurrentStatus = (status: TaskStatus) => currentTask?.status === status;
+
+  // ====================== //
+  //                        //
+  //   UI COMPONENTS        //
+  //                        //
   // ====================== //
 
   if (isLoading) {
@@ -231,20 +265,10 @@ export default function TaskTriage() {
 
   const currentTask = tasks[currentIndex] || null;
 
-  const actionButton = (label: string, status: TaskStatus, tone: string) => (
-    <button
-      type="button"
-      onClick={() => markCurrent(status)}
-      disabled={!currentTask}
-      className={`px-4 py-2 rounded-full text-sm text-white ${tone} disabled:opacity-30 disabled:cursor-not-allowed`}
-    >
-      {label}
-    </button>
-  );
-
   return (
-    <div className="min-h-screen bg-white flex flex-col items-center justify-start px-4 py-8 sm:px-6 sm:py-10 md:px-12">
+    <div className="h-[80vh] bg-white flex flex-col items-center justify-center p-8">
       <div className="w-full max-w-2xl flex flex-col items-center">
+        {/* Task Info */}
         {currentTask ? (
           <div className="text-center mb-8 max-w-md px-2 sm:px-4">
             <p className="text-xs text-sky-500 mb-1">{currentTask.list}</p>
@@ -267,33 +291,107 @@ export default function TaskTriage() {
           </div>
         )}
 
-        <div className="flex w-full flex-wrap items-center justify-center gap-3 mb-6">
-          {actionButton("Done", TaskStatus.DONE, "bg-emerald-500 hover:bg-emerald-600")}
-          {actionButton("Today", TaskStatus.TODAY, "bg-sky-500 hover:bg-sky-600")}
-          {actionButton("Postpone", TaskStatus.POSTPONE, "bg-amber-500 hover:bg-amber-600")}
-          {actionButton("Delete", TaskStatus.DELETE, "bg-rose-500 hover:bg-rose-600")}
-          {actionButton("Skip", TaskStatus.SKIP, "bg-slate-400 hover:bg-slate-500")}
+        {/* Listening Circle */}
+        <div className="mb-16 flex w-full items-center justify-center">
+          <div
+            className={`w-48 h-48 rounded-full bg-sky-300 flex items-center justify-center ${
+              isVoiceReady ? "animate-pulse" : ""
+            }`}
+          >
+            <div className="w-32 h-32 rounded-full bg-sky-200"></div>
+          </div>
         </div>
 
-        <div className="flex w-full items-center justify-center gap-4">
+        {/* Control Buttons */}
+        <div className="flex items-center justify-center gap-2 sm:gap-6 w-full px-2">
           <button
+            title="back"
             type="button"
-            onClick={goBack}
-            disabled={currentIndex === 0}
-            className="px-4 py-2 rounded-full text-sm bg-white border-2 border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed"
+            onClick={handleEventBack}
+            disabled={!canGoBack()}
+            className="w-10 h-10 sm:w-14 sm:h-14 rounded-full bg-white border-2 border-slate-200 flex items-center justify-center hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
           >
-            Back
+            <ArrowLeft className="w-5 h-5 sm:w-6 sm:h-6 text-sky-400" />
           </button>
+
           <button
+            title="done"
             type="button"
-            onClick={goNext}
-            disabled={currentIndex >= tasks.length - 1}
-            className="px-4 py-2 rounded-full text-sm bg-white border-2 border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed"
+            onClick={() => handleEventMarkCurrent(TaskStatus.DONE)}
+            disabled={!currentTask}
+            className={
+              isCurrentStatus(TaskStatus.DONE)
+                ? "w-10 h-10 sm:w-14 sm:h-14 rounded-full border-2 flex items-center justify-center hover:bg-slate-50 transition-all border-sky-400 bg-sky-50 disabled:opacity-30 disabled:cursor-not-allowed"
+                : "w-10 h-10 sm:w-14 sm:h-14 rounded-full bg-white border-2 flex items-center justify-center hover:bg-slate-50 transition-all border-slate-200 disabled:opacity-30 disabled:cursor-not-allowed"
+            }
           >
-            Next
+            <Check className="w-5 h-5 sm:w-6 sm:h-6 text-sky-400" />
+          </button>
+
+          <button
+            title="today"
+            type="button"
+            onClick={() => handleEventMarkCurrent(TaskStatus.TODAY)}
+            disabled={!currentTask}
+            className={
+              isCurrentStatus(TaskStatus.TODAY)
+                ? "w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-sky-500 flex items-center justify-center hover:bg-sky-500 transition-all shadow-lg disabled:opacity-30 disabled:cursor-not-allowed"
+                : "w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-sky-400 flex items-center justify-center hover:bg-sky-500 transition-all shadow-lg disabled:opacity-30 disabled:cursor-not-allowed"
+            }
+          >
+            <CalendarClock className="w-7 h-7 sm:w-8 sm:h-8 text-white" />
+          </button>
+
+          <button
+            title="postpone"
+            type="button"
+            onClick={() => handleEventMarkCurrent(TaskStatus.POSTPONE)}
+            disabled={!currentTask}
+            className={
+              isCurrentStatus(TaskStatus.POSTPONE)
+                ? "w-10 h-10 sm:w-14 sm:h-14 rounded-full border-2 flex items-center justify-center hover:bg-slate-50 transition-all border-sky-400 bg-sky-50 disabled:opacity-30 disabled:cursor-not-allowed"
+                : "w-10 h-10 sm:w-14 sm:h-14 rounded-full bg-white border-2 flex items-center justify-center hover:bg-slate-50 transition-all border-slate-200 disabled:opacity-30 disabled:cursor-not-allowed"
+            }
+          >
+            <Clock className="w-5 h-5 sm:w-6 sm:h-6 text-sky-400" />
+          </button>
+
+          <button
+            title="delete"
+            type="button"
+            onClick={() => handleEventMarkCurrent(TaskStatus.DELETE)}
+            disabled={!currentTask}
+            className={
+              isCurrentStatus(TaskStatus.DELETE)
+                ? "w-10 h-10 sm:w-14 sm:h-14 rounded-full border-2 flex items-center justify-center hover:bg-slate-50 transition-all border-sky-400 bg-sky-50 disabled:opacity-30 disabled:cursor-not-allowed"
+                : "w-10 h-10 sm:w-14 sm:h-14 rounded-full bg-white border-2 flex items-center justify-center hover:bg-slate-50 transition-all border-slate-200 disabled:opacity-30 disabled:cursor-not-allowed"
+            }
+          >
+            <Trash2 className="w-5 h-5 sm:w-6 sm:h-6 text-sky-400" />
+          </button>
+
+          <button
+            title="skip"
+            type="button"
+            onClick={() => handleEventMarkCurrent(TaskStatus.SKIP)}
+            disabled={!currentTask}
+            className="w-10 h-10 sm:w-14 sm:h-14 rounded-full bg-white border-2 border-slate-200 flex items-center justify-center hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+          >
+            <Undo2 className="w-5 h-5 sm:w-6 sm:h-6 text-sky-400" />
+          </button>
+
+          <button
+            title="next"
+            type="button"
+            onClick={handleEventNext}
+            disabled={!canGoNext()}
+            className="w-10 h-10 sm:w-14 sm:h-14 rounded-full bg-white border-2 border-slate-200 flex items-center justify-center hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+          >
+            <ArrowRight className="w-5 h-5 sm:w-6 sm:h-6 text-sky-400" />
           </button>
         </div>
 
+        {/* Voice Command Status */}
         <div className="mt-8 text-center w-full max-w-sm px-4">
           <p className="text-xs text-slate-600 mb-1">What I heard: {lastVoiceCommand}</p>
           <p className="text-xs text-slate-500 leading-relaxed">

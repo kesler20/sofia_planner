@@ -14,9 +14,7 @@ export default function Foods() {
     [],
     "foods"
   );
-
-  // this state is required to allow the user to edit multiple foods at once and then update
-  const [foodsChanged, setFoodsChanged] = React.useState<FoodType[]>([]);
+  const [searchQuery, setSearchQuery] = React.useState<string>("");
 
   React.useEffect(() => {
     readResourceInDb<string>(email, "foods").then(({ result, error }) => {
@@ -25,7 +23,7 @@ export default function Foods() {
         toastFactory("Failed to load foods from database", MessageSeverity.ERROR);
       }
       if (result) {
-        const parsed = JSON.parse(result);
+        const parsed = JSON.parse(result) as FoodType[];
         setFoodsFromDb(parsed);
       }
     });
@@ -46,23 +44,13 @@ export default function Foods() {
     foodAttribute: FoodAttributeType,
     value: number | string | null
   ) => {
-    const foodToUpdate = foodsFromDb.find((f: FoodType) => f.name === foodName);
-    if (!foodToUpdate) {
-      return;
-    }
-
-    (foodToUpdate[foodAttribute as keyof FoodType] as typeof value) = value;
-
-    setFoodsFromDb(
-      foodsFromDb.map((food: FoodType) => {
-        if (food.name === foodName) {
-          return foodToUpdate;
-        }
-        return food;
-      })
+    setFoodsFromDb((prev) =>
+      prev.map((food: FoodType) =>
+        food.name !== foodName
+          ? food
+          : ({ ...food, [foodAttribute]: value } as FoodType)
+      )
     );
-
-    setFoodsChanged([...foodsChanged, foodToUpdate]);
   };
 
   const saveChanges = () => {
@@ -77,22 +65,69 @@ export default function Foods() {
       }
       if (result) {
         toastFactory("Changes saved successfully", MessageSeverity.SUCCESS);
-        setFoodsChanged([]);
       }
     });
   };
 
+  const handleEventSearchFoods = (query: string) => {
+    setSearchQuery(query);
+  };
+
+  const getFoodMatchesSearch = (food: FoodType) => {
+    const normalizedQuery = searchQuery.trim().toLowerCase();
+    if (!normalizedQuery) {
+      return true;
+    }
+
+    const searchableText = [
+      food.name,
+      food.calories,
+      food.protein,
+      food.carbs,
+      food.fat,
+      food.cost ?? "unmatched",
+      food.amount,
+      food.vendor ?? "unmatched",
+    ]
+      .join(" ")
+      .toLowerCase();
+
+    return searchableText.includes(normalizedQuery);
+  };
+
+  const filteredFoods = foodsFromDb.filter(getFoodMatchesSearch);
+
   return (
-    <div className="w-full flex flex-col justify-start items-center h-[70vh] mt-24">
-      <div className="min-w-[300px] w-[60%] max-w-[1100px] overflow-x-scroll">
+    <div className="w-full flex flex-col justify-start items-center h-[calc(100vh-88px)] box-border overflow-hidden p-3">
+      {/* Header */}
+      <div className="min-w-[300px] w-[90%] max-w-[1100px] flex justify-between items-center gap-4 mb-2">
+        <div className="w-1/3 flex items-center justify-center">
+          <p className="font-bold text-gray-600">Edit Foods</p>
+        </div>
+        <div className="w-1/3 flex items-center justify-center">
+          <input
+            className="border-b w-full text-center outline-none"
+            placeholder="Search foods"
+            value={searchQuery}
+            onChange={(event) => handleEventSearchFoods(event.target.value)}
+          />
+        </div>
+        <div className="w-1/3 flex items-center justify-center">
+          <MainButton
+            text={"Save Changes"}
+            onSubmit={saveChanges}
+            className="!mt-0 !mb-0"
+          />
+        </div>
+      </div>
+
+      {/* Foods */}
+      <div className="min-w-[300px] w-[90%] max-w-[1100px] flex-1 min-h-0 overflow-x-auto overflow-y-scroll scrollbar-hide">
         <FoodsTable
-          foods={foodsFromDb}
+          foods={filteredFoods}
           onDeleteFood={deleteFood}
           onChangeFood={editFood}
         />
-      </div>
-      <div className="w-full flex items-center justify-center">
-        <MainButton text={"Save Changes"} onSubmit={saveChanges} />
       </div>
     </div>
   );

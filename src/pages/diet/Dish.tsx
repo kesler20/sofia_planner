@@ -80,7 +80,7 @@ export default function Dish() {
               onChange: (e) => setFood({ ...food, fat: Number(e.target.value) }),
             },
             {
-              name: "Cost (£, leave blank until matched from a receipt)",
+              name: "Cost (£)",
               value: food.cost ?? "",
               onChange: (e) =>
                 setFood({
@@ -94,7 +94,7 @@ export default function Dish() {
               onChange: (e) => setFood({ ...food, amount: Number(e.target.value) }),
             },
             {
-              name: "Vendor Name (leave blank until matched from a receipt)",
+              name: "Vendor Name",
               value: food.vendor ?? "",
               onChange: (e) =>
                 setFood({

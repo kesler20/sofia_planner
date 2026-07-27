@@ -1,5 +1,10 @@
 import * as React from "react";
-import { ToggleButton } from "@mui/material";
+import {
+  FormControl,
+  ToggleButton,
+  Select,
+  MenuItem,
+} from "@mui/material";
 import { FoodType, MealType } from "../../types";
 import MainButton from "../../components/button/MainButton";
 import { Table } from "../../components/table/Table";
@@ -9,15 +14,10 @@ import toastFactory, {
 } from "../../components/notification/ToastMessages";
 import LoadingAnimation from "../../components/LoadingAnimation";
 
-const createEmptyMeal = (name: string): MealType => ({
-  name,
-  foods: [],
-  tasteScore: 5,
-});
-
 const getFoodQuantity = (food: FoodType) => food.quantity ?? 1;
 
-export default function Meal() {
+export default function EditMeal() {
+
   // ====================== //
   //                        //
   //   STATE VARIABLES      //
@@ -31,7 +31,9 @@ export default function Meal() {
     [],
     "meals",
   );
-  const [draftMeal, setDraftMeal] = React.useState<MealType>(createEmptyMeal(""));
+
+  const [selectedMealName, setSelectedMealName] = React.useState<string>("");
+  const [localMeal, setLocalMeal] = React.useState<MealType | null>(null);
   const [searchQuery, setSearchQuery] = React.useState<string>("");
 
   // ====================== //
@@ -40,7 +42,18 @@ export default function Meal() {
   //                        //
   // ====================== //
 
-  // No auto-select: this page is for creating meals only.
+  React.useEffect(() => {
+    if (!selectedMealName && mealsFromDb.length > 0) {
+      setSelectedMealName(mealsFromDb[0].name);
+    }
+  }, [mealsFromDb, selectedMealName]);
+
+  React.useEffect(() => {
+    const meal = mealsFromDb.find((m) => m.name === selectedMealName) ?? null;
+    setLocalMeal(
+      meal ? { ...meal, foods: meal.foods.map((f) => ({ ...f })) } : null,
+    );
+  }, [selectedMealName, mealsFromDb]);
 
   // ====================== //
   //                        //
@@ -49,30 +62,19 @@ export default function Meal() {
   // ====================== //
 
   // ------------------------------------------------------ Meal
-  const handleEventAddMeal = () => {
-    const cleanName = draftMeal.name.trim();
-    if (!cleanName) {
-      toastFactory("Name the meal before adding it.", MessageSeverity.WARNING);
-      return;
-    }
+  const handleSelectMeal = (name: string) => setSelectedMealName(name);
 
-    if (mealsFromDb.some((meal) => meal.name === cleanName)) {
-      toastFactory("Meal names must be unique.", MessageSeverity.WARNING);
-      return;
-    }
-
-    setMealsFromDb((prev) => [...prev, { ...draftMeal, name: cleanName }]);
-    setDraftMeal(createEmptyMeal(""));
-    toastFactory("Meal added", MessageSeverity.SUCCESS);
-  };
-
-  const handleEventChangeMealName = (name: string) => {
-    setDraftMeal((prev) => ({ ...prev, name }));
+  const handleChangeMealName = (next: string) => {
+    setLocalMeal((prev) => (prev ? { ...prev, name: next } : prev));
   };
 
   // ------------------------------------------------------ Food
-  const handleEventToggleFood = (food: FoodType) => {
-    setDraftMeal((prev) => {
+  const handleToggleFood = (food: FoodType) => {
+    setLocalMeal((prev) => {
+      if (!prev) {
+        return prev;
+      }
+
       const foodIsSelected = prev.foods.some((item) => item.name === food.name);
       if (foodIsSelected) {
         return {
@@ -85,13 +87,46 @@ export default function Meal() {
     });
   };
 
-  const handleEventChangeFoodQuantity = (foodName: string, quantity: number) => {
-    setDraftMeal((prev) => ({
-      ...prev,
-      foods: prev.foods.map((food) =>
-        food.name !== foodName ? food : { ...food, quantity },
-      ),
-    }));
+  const handleChangeFoodQuantity = (foodName: string, quantity: number) => {
+    setLocalMeal((prev) =>
+      prev
+        ? {
+            ...prev,
+            foods: prev.foods.map((f) =>
+              f.name !== foodName ? f : { ...f, quantity },
+            ),
+          }
+        : prev,
+    );
+  };
+
+  const handleSave = () => {
+    if (!localMeal) return;
+
+    const cleanName = localMeal.name.trim();
+    if (!cleanName) {
+      toastFactory("Meal must have a name.", MessageSeverity.WARNING);
+      return;
+    }
+
+    // check name uniqueness (allow if renaming the same meal)
+    const nameTaken = mealsFromDb.some(
+      (m) => m.name === cleanName && m.name !== selectedMealName,
+    );
+    if (nameTaken) {
+      toastFactory("Another meal with that name exists.", MessageSeverity.WARNING);
+      return;
+    }
+
+    setMealsFromDb((prev) =>
+      prev.map((meal) => {
+        if (meal.name !== selectedMealName) return meal;
+        return { ...localMeal, name: cleanName };
+      }),
+    );
+
+    setSelectedMealName(cleanName);
+    toastFactory("Meal saved", MessageSeverity.SUCCESS);
   };
 
   // ------------------------------------------------------ Search
@@ -105,8 +140,8 @@ export default function Meal() {
   //                        //
   // ====================== //
 
-  const getFoodInSelectedMeal = (foodName: string) => {
-    return draftMeal.foods.find((food) => food.name === foodName) ?? null;
+  const getFoodInMeal = (foodName: string) => {
+    return localMeal?.foods.find((food) => food.name === foodName) ?? null;
   };
 
   const getMealTotal = (meal: MealType) => ({
@@ -132,11 +167,11 @@ export default function Meal() {
 
     const searchableText = [
       food.name,
+      food.amount,
       food.calories,
       food.protein,
       food.cost ?? "unmatched",
       food.vendor ?? "unmatched",
-      food.amount,
     ]
       .join(" ")
       .toLowerCase();
@@ -150,43 +185,55 @@ export default function Meal() {
   //                        //
   // ====================== //
 
-  if (isLoading) {
-    return <LoadingAnimation />;
-  }
+  if (isLoading) return <LoadingAnimation />;
 
   const filteredFoods = foodsFromDb.filter(getFoodMatchesSearch);
-  const selectedMealTotal = getMealTotal(draftMeal);
-  const selectedMealAmount = draftMeal.foods.reduce(
-    (sum, food) => sum + food.amount * getFoodQuantity(food),
-    0,
-  );
+  const mealTotal = localMeal
+    ? getMealTotal(localMeal)
+    : { calories: 0, protein: 0, cost: 0 };
+  const mealAmount =
+    localMeal?.foods.reduce(
+      (sum, food) => sum + food.amount * getFoodQuantity(food),
+      0,
+    ) ?? 0;
 
   return (
     <div className="w-full flex flex-col items-center p-3 h-[calc(100vh-88px)] box-border overflow-hidden">
-      {/* Food selector header (aligned like EditMeal) */}
-      <div className="w-full max-w-[1100px] flex justify-between items-center gap-4 mb-2 text-gray-500">
+      {/* Header */}
+      <div className="w-full max-w-[1100px] flex justify-between items-center gap-4 mb-2">
+
         <div className="w-1/4 flex items-center justify-center">
-          <p className="font-bold text-gray-600">Create Meal</p>
+          <FormControl variant="outlined" size="small" className="flex-1">
+            <Select
+              labelId="select-meal-label"
+              label="Select meal"
+              fullWidth
+              value={selectedMealName}
+              onChange={(e) => handleSelectMeal(e.target.value as string)}
+            >
+              <MenuItem value="">-- Select a meal --</MenuItem>
+              {mealsFromDb.map((meal) => (
+                <MenuItem key={meal.name} value={meal.name}>
+                  {meal.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
         </div>
 
         <div className="w-1/3 flex items-center justify-center">
           <input
             className="border-b w-full text-center outline-none"
-            placeholder="New meal name"
-            value={draftMeal.name}
-            onChange={(event) => handleEventChangeMealName(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                handleEventAddMeal();
-              }
-            }}
+            value={localMeal?.name ?? ""}
+            onChange={(e) => handleChangeMealName(e.target.value)}
+            placeholder="Meal Name"
           />
         </div>
 
         <div className="w-1/3 flex items-center justify-center">
           <MainButton
-            text="Create Meal"
-            onSubmit={handleEventAddMeal}
+            text="Save Changes"
+            onSubmit={handleSave}
             className="!mt-0 !mb-0"
           />
         </div>
@@ -199,7 +246,7 @@ export default function Meal() {
             className="border-b w-full max-w-[420px] text-center outline-none"
             placeholder="Search foods"
             value={searchQuery}
-            onChange={(event) => handleEventSearchFoods(event.target.value)}
+            onChange={(e) => handleEventSearchFoods(e.target.value)}
           />
         </div>
 
@@ -212,13 +259,13 @@ export default function Meal() {
                 <th>Select</th>
                 <th>Amount (g)</th>
                 <th>Qty</th>
-                <th>Food Calories (Kcal)</th>
-                <th>Food Protein (g)</th>
-                <th>Food Cost (£)</th>
+                <th>Calories</th>
+                <th>Protein</th>
+                <th>Cost (£)</th>
                 <th>Vendor</th>
               </tr>
               {filteredFoods.map((food) => {
-                const selectedFood = getFoodInSelectedMeal(food.name);
+                const selectedFood = getFoodInMeal(food.name);
                 return (
                   <tr key={food.name} className={selectedFood ? "selected" : ""}>
                     <td>{food.name}</td>
@@ -226,7 +273,8 @@ export default function Meal() {
                       <ToggleButton
                         value="check"
                         selected={Boolean(selectedFood)}
-                        onClick={() => handleEventToggleFood(food)}
+                        disabled={!localMeal}
+                        onClick={() => handleToggleFood(food)}
                       />
                     </td>
                     <td>{food.amount ?? 0}</td>
@@ -237,11 +285,9 @@ export default function Meal() {
                         className="text-center"
                         disabled={!selectedFood}
                         value={selectedFood ? String(getFoodQuantity(selectedFood)) : "1"}
-                        onChange={(event) => {
-                          const next =
-                            event.target.value === "" ? 0 : Number(event.target.value);
-                          handleEventChangeFoodQuantity(food.name, next);
-                        }}
+                        onChange={(e) =>
+                          handleChangeFoodQuantity(food.name, Number(e.target.value || 0))
+                        }
                       />
                     </td>
                     <td>{selectedFood?.calories ?? food.calories}</td>
@@ -249,7 +295,7 @@ export default function Meal() {
                     <td>
                       {(selectedFood?.cost ?? food.cost)?.toFixed(2) ?? "unmatched"}
                     </td>
-                    <td>{food.vendor ?? "unmatched"}</td>
+                    <td>{selectedFood?.vendor ?? food.vendor ?? "unmatched"}</td>
                   </tr>
                 );
               })}
@@ -271,16 +317,14 @@ export default function Meal() {
                 <th>Additional Info</th>
               </tr>
               <tr>
-                <td>{draftMeal.name.trim() || "..."}</td>
-                <td>{draftMeal.foods.length}</td>
-                <td>{selectedMealAmount}</td>
-                <td>{selectedMealTotal.calories}</td>
-                <td>{selectedMealTotal.protein}</td>
-                <td>{selectedMealTotal.cost.toFixed(2)}</td>
+                <td>{localMeal?.name.trim() || "..."}</td>
+                <td>{localMeal?.foods.length ?? 0}</td>
+                <td>{mealAmount}</td>
+                <td>{mealTotal.calories}</td>
+                <td>{mealTotal.protein}</td>
+                <td>{mealTotal.cost.toFixed(2)}</td>
                 <td>
-                  {draftMeal.name.trim()
-                    ? `${draftMeal.tasteScore}/10 taste`
-                    : "..."}
+                  {localMeal ? `${localMeal.tasteScore}/10 taste` : "..."}
                 </td>
               </tr>
             </tbody>

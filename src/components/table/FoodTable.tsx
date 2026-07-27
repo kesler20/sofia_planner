@@ -15,7 +15,7 @@ export default function FoodsTable(props: {
     <Table>
       <tbody>
         <tr>
-          <th>Name</th>
+          <th className="min-w-[220px]">Name</th>
           <th>Calories (Kcal)</th>
           <th>Protein (g)</th>
           <th>Carbs (g)</th>
@@ -27,8 +27,8 @@ export default function FoodsTable(props: {
         </tr>
         {props.foods.map((food, foodId) => {
           return (
-            <tr key={foodId} className="pointer-cursor">
-              <td>{food.name}</td>
+            <tr key={food.name || foodId} className="pointer-cursor">
+              <td className="min-w-[220px] text-left">{food.name}</td>
               <td>
                 <input
                   type="number"
