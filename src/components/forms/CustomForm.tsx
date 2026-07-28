@@ -1,7 +1,25 @@
 import { IoIosArrowForward } from "react-icons/io";
 import MainButton from "../button/MainButton";
 
-export function SectionTitle(props: { title: string }) {
+export function SectionTitle(props: { centered?: boolean; title: string }) {
+  if (props.centered) {
+    return (
+      <div className="relative flex h-[38px] w-full items-center text-gray-500">
+        <div
+          className={`
+                absolute left-0
+                flex justify-center items-center
+                w-[38px] h-[38px]
+                bg-gray-600
+                rounded-full text-gray-200`}
+        >
+          <IoIosArrowForward size={20} />
+        </div>
+        <p className="w-full px-12 text-center">{props.title}</p>
+      </div>
+    );
+  }
+
   return (
     <div className="flex w-full justify-start items-center text-gray-500">
       <div
@@ -40,10 +58,18 @@ export default function CustomForm(props: {
     name: string;
     value: string | number;
     onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+    secondary?: {
+      label: string;
+      value: string | number;
+      onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+    };
   }[];
+  header?: React.ReactNode;
   body?: React.ReactNode;
   onSubmit: (resource: any) => void;
   longer?: boolean;
+  className?: string;
+  fieldsClassName?: string;
 }) {
   return (
     <div
@@ -52,35 +78,82 @@ export default function CustomForm(props: {
     min-w-[250px] md:min-w-[280px] max-h-[550px] h-auto
     border-0.1 border-gray-200 relative
     bg-white
-    rounded-2xl shadow-xl`}
+    rounded-2xl shadow-xl
+    ${props.className ?? ""}`}
     >
       <SVGBackground />
-      <form className="flex items-center justify-center flex-col h-full">
+      <form className="flex items-center justify-center flex-col h-full w-full">
+        {/* Header content, e.g. a date selector */}
+        {props.header}
+
         {/* Get Card Name */}
-        <div className="hidden-scrollbar overflow-y-scroll h-[150px] pb-8" style={{
+        <div className={`hidden-scrollbar overflow-y-scroll h-[150px] pb-8 ${props.fieldsClassName ?? ""}`} style={{
           height: props.longer ? "250px" : "150px",
         }}>
           {props.sections.map((section, index) => {
             return (
               <div className="mt-14" key={index}>
-                <SectionTitle title={`${section.name} ?`} />
-                <input
-                  className={`
-              text-center
-              bg-transparent
-              text-black
-              ml-2`}
-                  style={{
-                    border: "none",
-                    outline: "none",
-                    borderBottom: "1px solid rgb(193, 197, 204)",
-                  }}
-                  title="write-topic"
-                  type={typeof section.value === "string" ? "text" : "number"}
-                  placeholder={`Enter ${section.name}`}
-                  required
-                  onChange={section.onChange}
-                />
+                <SectionTitle centered={Boolean(section.secondary)} title={`${section.name} ?`} />
+                <div
+                  className={
+                    section.secondary
+                      ? "grid w-full grid-cols-2 items-end justify-center gap-8 px-2"
+                      : "flex w-full items-end justify-center px-2"
+                  }
+                >
+                  <div className="flex min-w-0 flex-col items-center">
+                    {section.secondary && (
+                      <span className="text-[10px] text-gray-400 mb-1">Value</span>
+                    )}
+                    <input
+                      className={`
+                w-full min-w-0
+                text-center
+                bg-transparent
+                text-black`}
+                      style={{
+                        border: "none",
+                        outline: "none",
+                        borderBottom: "1px solid rgb(193, 197, 204)",
+                      }}
+                      title="write-topic"
+                      type={typeof section.value === "string" ? "text" : "number"}
+                      placeholder={`Enter ${section.name}`}
+                      required
+                      value={section.value}
+                      onChange={section.onChange}
+                    />
+                  </div>
+                  {section.secondary && (
+                    <div className="flex min-w-0 flex-col items-center">
+                      <span className="text-[10px] text-gray-400 mb-1">
+                        {section.secondary.label}
+                      </span>
+                      <input
+                        className={`
+                  w-full min-w-0
+                  text-center
+                  bg-transparent
+                  text-black`}
+                        style={{
+                          border: "none",
+                          outline: "none",
+                          borderBottom: "1px solid rgb(193, 197, 204)",
+                        }}
+                        title="write-secondary"
+                        type={
+                          typeof section.secondary.value === "string"
+                            ? "text"
+                            : "number"
+                        }
+                        placeholder={section.secondary.label}
+                        required
+                        value={section.secondary.value}
+                        onChange={section.secondary.onChange}
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
             );
           })}

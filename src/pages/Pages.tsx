@@ -8,6 +8,7 @@ import BudgetsPage from "./finance/BudgetsPage";
 import VoiceEmailReader from "./inbox/VoiceEmailReader";
 import TaskTriage from "./inbox/TaskTriage";
 import InvestmentPlannerPage from "./finance/InvestmentPlannerPage";
+import AnalyticsPage from "./analytics/AnalyticsPage";
 
 type PageMetaData = {
   name: string;
@@ -16,8 +17,8 @@ type PageMetaData = {
   shareComponent?: React.ComponentType;
 };
 
-export type ValidViews = "diet" | "finance" | "inbox";
-export const validViewsValues = ["diet", "finance", "inbox"];
+export type ValidViews = "diet" | "finance" | "inbox" | "analytics";
+export const validViewsValues = ["diet", "finance", "inbox", "analytics"];
 
 export type Pages = {
   [K in ValidViews]: PageMetaData[];
@@ -71,6 +72,13 @@ export const pages: Pages = {
       name: "Task Triage",
       link: "/task-triage",
       pageComponent: TaskTriage,
+    },
+  ],
+  analytics: [
+    {
+      name: "Analytics",
+      link: "/analytics",
+      pageComponent: AnalyticsPage,
     },
   ],
 };
