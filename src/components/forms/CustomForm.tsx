@@ -58,6 +58,7 @@ export default function CustomForm(props: {
     name: string;
     value: string | number;
     onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+    footer?: React.ReactNode;
     secondary?: {
       label: string;
       value: string | number;
@@ -154,6 +155,11 @@ export default function CustomForm(props: {
                     </div>
                   )}
                 </div>
+                {section.footer && (
+                  <div className="mt-3 flex w-full justify-center px-2">
+                    {section.footer}
+                  </div>
+                )}
               </div>
             );
           })}
