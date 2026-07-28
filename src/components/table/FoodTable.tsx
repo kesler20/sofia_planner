@@ -15,9 +15,9 @@ export default function FoodsTable(props: {
     <Table>
       <tbody>
         <tr>
-          <th className="min-w-[220px]">Name</th>
-          <th>Calories (Kcal)</th>
-          <th>Protein (g)</th>
+          <th className="min-w-[160px] sm:min-w-[220px]">Name</th>
+          <th><span className="sm:hidden">Kcal</span><span className="hidden sm:inline">Calories (Kcal)</span></th>
+          <th><span className="sm:hidden">Prot</span><span className="hidden sm:inline">Protein (g)</span></th>
           <th>Carbs (g)</th>
           <th>Fat (g)</th>
           <th>Cost (£)</th>
@@ -28,11 +28,13 @@ export default function FoodsTable(props: {
         {props.foods.map((food, foodId) => {
           return (
             <tr key={food.name || foodId} className="pointer-cursor">
-              <td className="min-w-[220px] text-left">{food.name}</td>
+              <td className="min-w-[160px] sm:min-w-[220px] text-left">
+                {food.name}
+              </td>
               <td>
                 <input
                   type="number"
-                  className="text-center"
+                  className="w-14 sm:w-auto text-center"
                   value={food.calories}
                   onChange={(e) =>
                     props.onChangeFood(food.name, "calories", Number(e.target.value))
@@ -42,7 +44,7 @@ export default function FoodsTable(props: {
               <td>
                 <input
                   type="number"
-                  className="text-center"
+                  className="w-14 sm:w-auto text-center"
                   value={food.protein}
                   onChange={(e) =>
                     props.onChangeFood(food.name, "protein", Number(e.target.value))
@@ -52,7 +54,7 @@ export default function FoodsTable(props: {
               <td>
                 <input
                   type="number"
-                  className="text-center"
+                  className="w-14 sm:w-auto text-center"
                   value={food.carbs}
                   onChange={(e) =>
                     props.onChangeFood(food.name, "carbs", Number(e.target.value))
@@ -62,7 +64,7 @@ export default function FoodsTable(props: {
               <td>
                 <input
                   type="number"
-                  className="text-center"
+                  className="w-14 sm:w-auto text-center"
                   value={food.fat}
                   onChange={(e) =>
                     props.onChangeFood(food.name, "fat", Number(e.target.value))
@@ -72,7 +74,7 @@ export default function FoodsTable(props: {
               <td>
                 <input
                   type="number"
-                  className="text-center"
+                  className="w-14 sm:w-auto text-center"
                   placeholder="unmatched"
                   value={food.cost ?? ""}
                   onChange={(e) =>
@@ -87,7 +89,7 @@ export default function FoodsTable(props: {
               <td>
                 <input
                   type="number"
-                  className="text-center"
+                  className="w-14 sm:w-auto text-center"
                   value={food.amount}
                   onChange={(e) =>
                     props.onChangeFood(food.name, "amount", Number(e.target.value))
@@ -97,7 +99,7 @@ export default function FoodsTable(props: {
               <td>
                 <input
                   type="text"
-                  className="text-center"
+                  className="w-24 sm:w-auto text-center"
                   placeholder="unmatched"
                   value={food.vendor ?? ""}
                   onChange={(e) =>

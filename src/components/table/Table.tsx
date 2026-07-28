@@ -42,4 +42,27 @@ export const Table = styled.table`
     outline: none;
     font-size: var(--input-font-size);
   }
+
+  @media (max-width: 640px) {
+    th {
+      padding-top: 4px;
+      padding-bottom: 4px;
+      font-size: 0.7rem;
+      white-space: nowrap;
+    }
+
+    td,
+    th {
+      padding: 4px;
+    }
+
+    tr {
+      font-size: 0.75rem;
+    }
+
+    input {
+      max-width: 56px;
+      text-align: center;
+    }
+  }
 `;

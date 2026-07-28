@@ -5,13 +5,21 @@ export default function MainButton(props: {
   onSubmit: MouseEventHandler<HTMLButtonElement> | undefined;
   text?: string;
   className?: string;
+  iconOnlyOnMobile?: boolean;
 }) {
+  const buttonText = props.text ? props.text : "Submit";
+
   return (
     <button
-      className={`modal__card__btn--create mb-8 ${props.className ?? ""}`}
+      title={buttonText}
+      className={`modal__card__btn--create ${
+        props.iconOnlyOnMobile ? "modal__card__btn--mobile-icon" : ""
+      } mb-8 ${props.className ?? ""}`}
       onClick={props.onSubmit}
     >
-      <p className="mr-2">{props.text ? props.text : "Submit"}</p>
+      <p className={`${props.iconOnlyOnMobile ? "hidden sm:block" : ""} mr-2`}>
+        {buttonText}
+      </p>
       <FaArrowUpRightFromSquare size={"13"} />
     </button>
   );

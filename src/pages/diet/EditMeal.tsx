@@ -198,11 +198,11 @@ export default function EditMeal() {
     ) ?? 0;
 
   return (
-    <div className="w-full flex flex-col items-center p-3 h-[calc(100vh-88px)] box-border overflow-hidden">
+    <div className="w-full flex flex-col items-center p-2 sm:p-3 h-[calc(100vh-88px)] box-border overflow-hidden">
       {/* Header */}
-      <div className="w-full max-w-[1100px] flex justify-between items-center gap-4 mb-2">
+      <div className="w-full max-w-[1100px] flex flex-wrap justify-between items-center gap-2 sm:gap-4 mb-2">
 
-        <div className="w-1/4 flex items-center justify-center">
+        <div className="w-full sm:w-1/4 flex items-center justify-center">
           <FormControl variant="outlined" size="small" className="flex-1">
             <Select
               labelId="select-meal-label"
@@ -221,7 +221,7 @@ export default function EditMeal() {
           </FormControl>
         </div>
 
-        <div className="w-1/3 flex items-center justify-center">
+        <div className="flex-1 min-w-[170px] sm:w-1/3 flex items-center justify-center">
           <input
             className="border-b w-full text-center outline-none"
             value={localMeal?.name ?? ""}
@@ -230,10 +230,11 @@ export default function EditMeal() {
           />
         </div>
 
-        <div className="w-1/3 flex items-center justify-center">
+        <div className="w-auto sm:w-1/3 flex items-center justify-center">
           <MainButton
             text="Save Changes"
             onSubmit={handleSave}
+            iconOnlyOnMobile
             className="!mt-0 !mb-0"
           />
         </div>
@@ -257,18 +258,18 @@ export default function EditMeal() {
               <tr>
                 <th>Food Name</th>
                 <th>Select</th>
-                <th>Amount (g)</th>
+                <th className="hidden sm:table-cell">Amount (g)</th>
                 <th>Qty</th>
-                <th>Calories</th>
-                <th>Protein</th>
-                <th>Cost (£)</th>
-                <th>Vendor</th>
+                <th><span className="sm:hidden">Kcal</span><span className="hidden sm:inline">Calories</span></th>
+                <th><span className="sm:hidden">Prot</span><span className="hidden sm:inline">Protein</span></th>
+                <th className="hidden sm:table-cell">Cost (£)</th>
+                <th className="hidden sm:table-cell">Vendor</th>
               </tr>
               {filteredFoods.map((food) => {
                 const selectedFood = getFoodInMeal(food.name);
                 return (
                   <tr key={food.name} className={selectedFood ? "selected" : ""}>
-                    <td>{food.name}</td>
+                    <td className="min-w-[120px] text-left">{food.name}</td>
                     <td>
                       <ToggleButton
                         value="check"
@@ -277,7 +278,7 @@ export default function EditMeal() {
                         onClick={() => handleToggleFood(food)}
                       />
                     </td>
-                    <td>{food.amount ?? 0}</td>
+                    <td className="hidden sm:table-cell">{food.amount ?? 0}</td>
                     <td>
                       <input
                         type="number"
@@ -292,10 +293,12 @@ export default function EditMeal() {
                     </td>
                     <td>{selectedFood?.calories ?? food.calories}</td>
                     <td>{selectedFood?.protein ?? food.protein}</td>
-                    <td>
+                    <td className="hidden sm:table-cell">
                       {(selectedFood?.cost ?? food.cost)?.toFixed(2) ?? "unmatched"}
                     </td>
-                    <td>{selectedFood?.vendor ?? food.vendor ?? "unmatched"}</td>
+                    <td className="hidden sm:table-cell">
+                      {selectedFood?.vendor ?? food.vendor ?? "unmatched"}
+                    </td>
                   </tr>
                 );
               })}
@@ -305,7 +308,29 @@ export default function EditMeal() {
 
         {/* Total */}
         <div className="sticky bottom-0 bg-white pt-2">
-          <Table>
+          <div className="grid grid-cols-5 gap-1 rounded-xl border border-gray-200 bg-white p-2 text-center text-[11px] font-semibold text-gray-500 md:hidden">
+            <div>
+              <p className="text-gray-400">Sel</p>
+              <p>{localMeal?.foods.length ?? 0}</p>
+            </div>
+            <div>
+              <p className="text-gray-400">Amt</p>
+              <p>{mealAmount}</p>
+            </div>
+            <div>
+              <p className="text-gray-400">Kcal</p>
+              <p>{mealTotal.calories}</p>
+            </div>
+            <div>
+              <p className="text-gray-400">Prot</p>
+              <p>{mealTotal.protein}</p>
+            </div>
+            <div>
+              <p className="text-gray-400">£</p>
+              <p>{mealTotal.cost.toFixed(2)}</p>
+            </div>
+          </div>
+          <Table className="hidden md:table">
             <tbody>
               <tr>
                 <th>Additional Info</th>

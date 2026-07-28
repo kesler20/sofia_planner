@@ -106,6 +106,15 @@ code {
   );
 }
 
+@media (max-width: 640px) {
+  .modal__card__btn--create.modal__card__btn--mobile-icon {
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+    border-radius: 9999px;
+  }
+}
+
 .modal__card__btn--delete:hover {
   /* global 94%+ browsers support */
   background: rgb(151, 72, 72);

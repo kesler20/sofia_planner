@@ -3,7 +3,11 @@ import CustomModal from "../../components/modal/CustomModal";
 import { MenuItem, Select } from "@mui/material";
 import { DietType, MealType, WeekdayType } from "../../types";
 import { IoIosAdd, IoIosRemove } from "react-icons/io";
-import { MdCalendarMonth, MdContentCopy, MdContentPaste } from "react-icons/md";
+import {
+  MdCalendarMonth,
+  MdContentCopy,
+  MdContentPaste,
+} from "react-icons/md";
 import { Table } from "../../components/table/Table";
 import MainButton from "../../components/button/MainButton";
 import IOSSwitch from "../../components/switch/IOSSwitch";
@@ -35,7 +39,7 @@ export function Card(props: {
 
 export function CardTitle(props: { title: string; onClick?: () => void }) {
   return (
-    <div className="flex w-full justify-start items-center text-gray-500">
+    <div className="flex w-auto md:w-full justify-start items-center text-gray-500">
       <div
         className={`
               flex justify-center items-center
@@ -43,7 +47,7 @@ export function CardTitle(props: { title: string; onClick?: () => void }) {
               border border-gray-900
               rounded-full text-gray-900
               cursor-pointer
-              ml-2 mr-6`}
+              ml-2 md:mr-6`}
       >
         <IoIosAdd size={20} onClick={props.onClick} />
       </div>
@@ -86,7 +90,7 @@ function SelectedMealsMenu(props: {
   onEventClose: () => void;
 }) {
   return (
-    <div className="fixed top-1/2 left-1/2 z-50 -translate-x-1/2 -translate-y-1/2 bg-white/30 backdrop-blur-md border border-gray-200 rounded-2xl shadow-md px-8 py-6 flex flex-col items-center min-w-[320px]">
+    <div className="fixed top-1/2 left-1/2 z-50 w-[calc(100vw-2rem)] max-w-[360px] -translate-x-1/2 -translate-y-1/2 bg-white/30 backdrop-blur-md border border-gray-200 rounded-2xl shadow-md px-5 sm:px-8 py-6 flex flex-col items-center">
       <div className="flex w-full items-center justify-between">
         <h2 className="text-xl font-bold mb-4 text-gray-800 font-serif">
           Selected Meals
@@ -419,84 +423,96 @@ export default function Diet() {
       )}
 
       {/* Diet selector */}
-      <Card className="min-w-[300px] w-1/2 max-w-[900px] mt-4 bg-white p-4 py-6">
+      <Card className="w-[calc(100%-1rem)] md:w-1/2 max-w-[900px] mt-2 md:mt-4 bg-white p-2 md:p-4 py-4 md:py-6">
         <CardSectionDivider title="Select Diet" />
-        <div className="w-full flex justify-between items-center  py-6">
-          <Select
-            value={viewedDiet.name}
-            onChange={(event: any) => handleEventSelectDiet(event.target.value)}
-          >
-            {diets.map((diet, index) => (
-              <MenuItem key={index} value={diet.name}>
-                {diet.name}
-                {diet.active ? " (active)" : ""}
-              </MenuItem>
-            ))}
-          </Select>
-          <div className="flex flex-col gap-2">
-            <p className="text-xs text-gray-500">Activate</p>
-            <IOSSwitch
-              checked={viewedDiet.active}
-              onChange={(event) =>
-                handleEventToggleActivateDiet(event.target.checked)
-              }
+        <div className="w-full flex flex-col md:flex-row justify-between items-stretch md:items-center gap-3 py-4 md:py-6">
+          <div className="flex items-center gap-3">
+            <div className="min-w-0 flex-1">
+              <Select
+                className="w-full"
+                value={viewedDiet.name}
+                onChange={(event: any) => handleEventSelectDiet(event.target.value)}
+              >
+                {diets.map((diet, index) => (
+                  <MenuItem key={index} value={diet.name}>
+                    {diet.name}
+                    {diet.active ? " (active)" : ""}
+                  </MenuItem>
+                ))}
+              </Select>
+            </div>
+            <div className="flex shrink-0 flex-col items-center gap-1">
+              <p className="text-[10px] text-gray-500">Active</p>
+              <IOSSwitch
+                checked={viewedDiet.active}
+                onChange={(event) =>
+                  handleEventToggleActivateDiet(event.target.checked)
+                }
+              />
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              className="border-b text-center w-full outline-none"
+              placeholder="New diet name"
+              value={newDietName}
+              onChange={(e) => setNewDietName(e.target.value)}
+            />
+            <MainButton
+              text="New Diet"
+              onSubmit={createDiet}
+              iconOnlyOnMobile
+              className="!mt-0 !mb-0 shrink-0"
             />
           </div>
-          <input
-            className="border-b text-center w-full sm:w-[260px] outline-none"
-            placeholder="New diet name"
-            value={newDietName}
-            onChange={(e) => setNewDietName(e.target.value)}
-          />
-          <MainButton
-            text="New Diet"
-            onSubmit={createDiet}
-            className="!mt-0 !mb-0"
-          />
         </div>
       </Card>
 
       {/* Main Card */}
-      <Card className="min-w-[300px] w-1/2 max-w-[900px] mt-4 bg-white p-4 py-6">
+      <Card className="w-[calc(100%-1rem)] md:w-1/2 max-w-[900px] mt-3 md:mt-4 bg-white p-2 md:p-4 py-4 md:py-6">
         {/* Card Header with the button and the Dropdown */}
-        <div className="w-full flex justify-evenly items-center">
+        <div className="w-full flex flex-nowrap justify-between md:justify-evenly items-center gap-2">
           <CardTitle
             title={`Add Meals for ${currentDay}`}
             onClick={() => setSelectMealModalOpen(true)}
           />
 
-          <h3
-            className="w-full text-blue-500 mr-4"
-            onClick={openMyFitnessPal}
-            style={{ cursor: "pointer" }}
-          >
-            Myfitnesspal Food Diary &gt;
-          </h3>
-
-          {/* Top select menu */}
-          <Select
-            labelId="demo-simple-select-label"
-            id="demo-simple-select"
-            value={currentDay}
-            onChange={(event: any) => {
-              setCurrentDay(event.target.value as WeekdayType);
-            }}
-          >
-            {Object.keys(viewedDiet.meals).map((day, index) => (
-              <MenuItem key={index} value={day}>
-                {day}
-              </MenuItem>
-            ))}
-          </Select>
           <button
             type="button"
-            className="ml-2 px-3 h-14 py-1 rounded-lg border border-gray-300 bg-white hover:bg-gray-100 text-gray-700 text-xs font-semibold shadow transition flex items-center gap-1"
-            title="Paste Meals"
-            onClick={pasteSelectedMealsFromClipboard}
+            className="hidden md:flex md:h-auto md:w-full md:flex-1 items-center justify-start text-blue-500 md:mr-4"
+            onClick={openMyFitnessPal}
+            title="Open MyFitnessPal food diary"
           >
-            <MdContentPaste size={16} />
-            Paste
+            Myfitnesspal Food Diary &gt;
           </button>
+
+          {/* Top select menu */}
+          <div className="ml-auto flex items-center gap-2">
+            <Select
+              labelId="demo-simple-select-label"
+              id="demo-simple-select"
+              className="h-10 min-w-[128px]"
+              value={currentDay}
+              onChange={(event: any) => {
+                setCurrentDay(event.target.value as WeekdayType);
+              }}
+            >
+              {Object.keys(viewedDiet.meals).map((day, index) => (
+                <MenuItem key={index} value={day}>
+                  {day}
+                </MenuItem>
+              ))}
+            </Select>
+            <button
+              type="button"
+              className="px-3 h-10 rounded-lg border border-gray-300 bg-white hover:bg-gray-100 text-gray-700 text-xs font-semibold shadow transition flex items-center gap-1"
+              title="Paste Meals"
+              onClick={pasteSelectedMealsFromClipboard}
+            >
+              <MdContentPaste size={16} />
+              <span className="hidden sm:inline">Paste</span>
+            </button>
+          </div>
         </div>
 
         {/* Card Body with the selected meals */}
@@ -512,18 +528,18 @@ export default function Diet() {
             </button>
           )}
         </div>
-        <div className="w-full min-h-[220px] max-h-[400px] my-6 overflow-x-scroll overflow-y-scroll custom-scrollbar rounded-xl border border-gray-200">
+        <div className="w-full min-h-[220px] max-h-[400px] my-4 md:my-6 overflow-x-hidden overflow-y-scroll custom-scrollbar rounded-xl border border-gray-200">
           <Table>
             <tbody>
               <tr>
-                <th>Select</th>
+                <th className="hidden md:table-cell">Select</th>
                 <th>Meal</th>
-                <th>Foods</th>
-                <th>Calories (Kcal)</th>
-                <th>Protein (g)</th>
-                <th>Cost (£)</th>
-                <th>Taste</th>
-                <th>Remove</th>
+                <th className="hidden md:table-cell">Foods</th>
+                <th><span className="md:hidden">Kcal</span><span className="hidden md:inline">Calories (Kcal)</span></th>
+                <th><span className="md:hidden">Prot</span><span className="hidden md:inline">Protein (g)</span></th>
+                <th><span className="md:hidden">Info</span><span className="hidden md:inline">Cost (£)</span></th>
+                <th className="hidden md:table-cell">Taste</th>
+                <th><span className="sr-only md:not-sr-only">Remove</span></th>
               </tr>
               {viewedDiet.meals[currentDay].map((meal: MealType) => {
                 const isMealSelected = selectedMeals.some(
@@ -547,15 +563,22 @@ export default function Diet() {
                     className={isMealSelected ? "selected" : ""}
                     onClick={() => toggleMealSelection(meal)}
                   >
-                    <td>
+                    <td className="hidden md:table-cell">
                       <IoIosAdd size={24} className="cursor-pointer" />
                     </td>
-                    <td>{meal.name}</td>
-                    <td>{meal.foods.length}</td>
+                    <td className="max-w-[96px] truncate text-left md:max-w-none">
+                      {meal.name}
+                    </td>
+                    <td className="hidden md:table-cell">{meal.foods.length}</td>
                     <td>{mealCalories}</td>
                     <td>{mealProtein}</td>
-                    <td>{mealCost.toFixed(2)}</td>
-                    <td>{meal.tasteScore}/10</td>
+                    <td>
+                      <span className="md:hidden">
+                        £{mealCost.toFixed(1)} {meal.tasteScore}/10
+                      </span>
+                      <span className="hidden md:inline">{mealCost.toFixed(2)}</span>
+                    </td>
+                    <td className="hidden md:table-cell">{meal.tasteScore}/10</td>
                     <td>
                       <IoIosRemove
                         size={24}
@@ -575,18 +598,18 @@ export default function Diet() {
 
         {/* Card Footer with the total */}
         <CardSectionDivider title="Daily Total" />
-        <Card className="flex items-center justify-evenly min-h-[70px] mt-4 px-4 py-3 bg-white">
-          <div className="flex flex-col md:flex-row w-full items-center justify-evenly gap-2">
-            <p className="md:text-xl text-gray-400 font-bold">
+        <Card className="flex items-center justify-evenly min-h-[70px] mt-4 px-2 md:px-4 py-3 bg-white">
+          <div className="grid grid-cols-2 md:flex md:flex-row w-full items-center justify-evenly gap-2">
+            <p className="text-sm md:text-xl text-gray-400 font-bold">
               Calories:{currentDayTotal.calories} kcal
             </p>
-            <p className="md:text-xl text-gray-400 font-bold">
+            <p className="text-sm md:text-xl text-gray-400 font-bold">
               Protein:{currentDayTotal.protein} g
             </p>
-            <p className="md:text-xl text-gray-400 font-bold">
+            <p className="text-sm md:text-xl text-gray-400 font-bold">
               Cost:£{currentDayTotal.cost.toFixed(2)}
             </p>
-            <p className="md:text-xl text-gray-400 font-bold">
+            <p className="text-sm md:text-xl text-gray-400 font-bold">
               Taste:{currentDayTotal.tasteScore.toFixed(1)}/10
             </p>
           </div>
@@ -594,20 +617,20 @@ export default function Diet() {
       </Card>
 
       {/* Weekly Average */}
-      <Card className="min-w-[300px] w-1/2 max-w-[900px] mt-4 mb-8 bg-white p-4 py-6">
+      <Card className="w-[calc(100%-1rem)] md:w-1/2 max-w-[900px] mt-3 md:mt-4 mb-8 bg-white p-2 md:p-4 py-4 md:py-6">
         <CardSectionDivider title="Weekly Average" />
-        <Card className="flex items-center justify-evenly min-h-[70px] mt-4 px-4 py-3 bg-white">
-          <div className="flex flex-col md:flex-row w-full items-center justify-evenly gap-2">
-            <p className="md:text-xl text-gray-400 font-bold">
+        <Card className="flex items-center justify-evenly min-h-[70px] mt-4 px-2 md:px-4 py-3 bg-white">
+          <div className="grid grid-cols-2 md:flex md:flex-row w-full items-center justify-evenly gap-2">
+            <p className="text-sm md:text-xl text-gray-400 font-bold">
               Calories:{weeklyAverage.calories.toFixed(0)} kcal
             </p>
-            <p className="md:text-xl text-gray-400 font-bold">
+            <p className="text-sm md:text-xl text-gray-400 font-bold">
               Protein:{weeklyAverage.protein.toFixed(0)} g
             </p>
-            <p className="md:text-xl text-gray-400 font-bold">
+            <p className="text-sm md:text-xl text-gray-400 font-bold">
               Cost:£{weeklyAverage.cost.toFixed(2)}
             </p>
-            <p className="md:text-xl text-gray-400 font-bold">
+            <p className="text-sm md:text-xl text-gray-400 font-bold">
               Taste:{weeklyAverage.tasteScore.toFixed(1)}/10
             </p>
           </div>
