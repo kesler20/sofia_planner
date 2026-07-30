@@ -39,6 +39,9 @@ jobs:
       - name: Run Type Checking
         run: pnpm run type-check
 
+      - name: Run Lint
+        run: pnpm run lint
+
   deploy:
     needs: test
     runs-on: ubuntu-latest
