@@ -5,6 +5,7 @@ import {
   CalendarClock,
   Check,
   Clock,
+  Tag,
   Trash2,
   Undo2,
 } from "lucide-react";
@@ -24,6 +25,7 @@ enum TaskStatus {
   POSTPONE = "POSTPONE",
   DELETE = "DELETE",
   SKIP = "SKIP",
+  AGENTS = "AGENTS",
 }
 
 type Task = {
@@ -223,6 +225,9 @@ export default function TaskTriage() {
       case "delete":
         handleEventMarkCurrent(TaskStatus.DELETE);
         break;
+      case "agents":
+        handleEventMarkCurrent(TaskStatus.AGENTS);
+        break;
       case "skip":
         handleEventMarkCurrent(TaskStatus.SKIP);
         break;
@@ -302,93 +307,112 @@ export default function TaskTriage() {
           </div>
         </div>
 
-        {/* Control Buttons */}
-        <div className="flex items-center justify-center gap-2 sm:gap-6 w-full px-2">
-          <button
-            title="back"
-            type="button"
-            onClick={handleEventBack}
-            disabled={!canGoBack()}
-            className="w-10 h-10 sm:w-14 sm:h-14 rounded-full bg-white border-2 border-slate-200 flex items-center justify-center hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-          >
-            <ArrowLeft className="w-5 h-5 sm:w-6 sm:h-6 text-sky-400" />
-          </button>
+        {/* Control Buttons: decision buttons on top, navigation/complete/delete below
+            so the row doesn't get cluttered on mobile. */}
+        <div className="flex flex-col items-center gap-4 sm:gap-6 w-full">
+          <div className="flex items-center justify-center gap-2 sm:gap-6 w-full px-2">
+            <button
+              title="today"
+              type="button"
+              onClick={() => handleEventMarkCurrent(TaskStatus.TODAY)}
+              disabled={!currentTask}
+              className={
+                isCurrentStatus(TaskStatus.TODAY)
+                  ? "w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-sky-500 flex items-center justify-center hover:bg-sky-500 transition-all shadow-lg disabled:opacity-30 disabled:cursor-not-allowed"
+                  : "w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-sky-400 flex items-center justify-center hover:bg-sky-500 transition-all shadow-lg disabled:opacity-30 disabled:cursor-not-allowed"
+              }
+            >
+              <CalendarClock className="w-7 h-7 sm:w-8 sm:h-8 text-white" />
+            </button>
 
-          <button
-            title="done"
-            type="button"
-            onClick={() => handleEventMarkCurrent(TaskStatus.DONE)}
-            disabled={!currentTask}
-            className={
-              isCurrentStatus(TaskStatus.DONE)
-                ? "w-10 h-10 sm:w-14 sm:h-14 rounded-full border-2 flex items-center justify-center hover:bg-slate-50 transition-all border-sky-400 bg-sky-50 disabled:opacity-30 disabled:cursor-not-allowed"
-                : "w-10 h-10 sm:w-14 sm:h-14 rounded-full bg-white border-2 flex items-center justify-center hover:bg-slate-50 transition-all border-slate-200 disabled:opacity-30 disabled:cursor-not-allowed"
-            }
-          >
-            <Check className="w-5 h-5 sm:w-6 sm:h-6 text-sky-400" />
-          </button>
+            <button
+              title="postpone"
+              type="button"
+              onClick={() => handleEventMarkCurrent(TaskStatus.POSTPONE)}
+              disabled={!currentTask}
+              className={
+                isCurrentStatus(TaskStatus.POSTPONE)
+                  ? "w-10 h-10 sm:w-14 sm:h-14 rounded-full border-2 flex items-center justify-center hover:bg-slate-50 transition-all border-sky-400 bg-sky-50 disabled:opacity-30 disabled:cursor-not-allowed"
+                  : "w-10 h-10 sm:w-14 sm:h-14 rounded-full bg-white border-2 flex items-center justify-center hover:bg-slate-50 transition-all border-slate-200 disabled:opacity-30 disabled:cursor-not-allowed"
+              }
+            >
+              <Clock className="w-5 h-5 sm:w-6 sm:h-6 text-sky-400" />
+            </button>
 
-          <button
-            title="today"
-            type="button"
-            onClick={() => handleEventMarkCurrent(TaskStatus.TODAY)}
-            disabled={!currentTask}
-            className={
-              isCurrentStatus(TaskStatus.TODAY)
-                ? "w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-sky-500 flex items-center justify-center hover:bg-sky-500 transition-all shadow-lg disabled:opacity-30 disabled:cursor-not-allowed"
-                : "w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-sky-400 flex items-center justify-center hover:bg-sky-500 transition-all shadow-lg disabled:opacity-30 disabled:cursor-not-allowed"
-            }
-          >
-            <CalendarClock className="w-7 h-7 sm:w-8 sm:h-8 text-white" />
-          </button>
+            <button
+              title="agents"
+              type="button"
+              onClick={() => handleEventMarkCurrent(TaskStatus.AGENTS)}
+              disabled={!currentTask}
+              className={
+                isCurrentStatus(TaskStatus.AGENTS)
+                  ? "w-10 h-10 sm:w-14 sm:h-14 rounded-full border-2 flex items-center justify-center hover:bg-slate-50 transition-all border-sky-400 bg-sky-50 disabled:opacity-30 disabled:cursor-not-allowed"
+                  : "w-10 h-10 sm:w-14 sm:h-14 rounded-full bg-white border-2 flex items-center justify-center hover:bg-slate-50 transition-all border-slate-200 disabled:opacity-30 disabled:cursor-not-allowed"
+              }
+            >
+              <Tag className="w-5 h-5 sm:w-6 sm:h-6 text-sky-400" />
+            </button>
 
-          <button
-            title="postpone"
-            type="button"
-            onClick={() => handleEventMarkCurrent(TaskStatus.POSTPONE)}
-            disabled={!currentTask}
-            className={
-              isCurrentStatus(TaskStatus.POSTPONE)
-                ? "w-10 h-10 sm:w-14 sm:h-14 rounded-full border-2 flex items-center justify-center hover:bg-slate-50 transition-all border-sky-400 bg-sky-50 disabled:opacity-30 disabled:cursor-not-allowed"
-                : "w-10 h-10 sm:w-14 sm:h-14 rounded-full bg-white border-2 flex items-center justify-center hover:bg-slate-50 transition-all border-slate-200 disabled:opacity-30 disabled:cursor-not-allowed"
-            }
-          >
-            <Clock className="w-5 h-5 sm:w-6 sm:h-6 text-sky-400" />
-          </button>
+            <button
+              title="skip"
+              type="button"
+              onClick={() => handleEventMarkCurrent(TaskStatus.SKIP)}
+              disabled={!currentTask}
+              className="w-10 h-10 sm:w-14 sm:h-14 rounded-full bg-white border-2 border-slate-200 flex items-center justify-center hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+            >
+              <Undo2 className="w-5 h-5 sm:w-6 sm:h-6 text-sky-400" />
+            </button>
+          </div>
 
-          <button
-            title="delete"
-            type="button"
-            onClick={() => handleEventMarkCurrent(TaskStatus.DELETE)}
-            disabled={!currentTask}
-            className={
-              isCurrentStatus(TaskStatus.DELETE)
-                ? "w-10 h-10 sm:w-14 sm:h-14 rounded-full border-2 flex items-center justify-center hover:bg-slate-50 transition-all border-sky-400 bg-sky-50 disabled:opacity-30 disabled:cursor-not-allowed"
-                : "w-10 h-10 sm:w-14 sm:h-14 rounded-full bg-white border-2 flex items-center justify-center hover:bg-slate-50 transition-all border-slate-200 disabled:opacity-30 disabled:cursor-not-allowed"
-            }
-          >
-            <Trash2 className="w-5 h-5 sm:w-6 sm:h-6 text-sky-400" />
-          </button>
+          <div className="flex items-center justify-center gap-2 sm:gap-6 w-full px-2">
+            <button
+              title="back"
+              type="button"
+              onClick={handleEventBack}
+              disabled={!canGoBack()}
+              className="w-10 h-10 sm:w-14 sm:h-14 rounded-full bg-white border-2 border-slate-200 flex items-center justify-center hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+            >
+              <ArrowLeft className="w-5 h-5 sm:w-6 sm:h-6 text-sky-400" />
+            </button>
 
-          <button
-            title="skip"
-            type="button"
-            onClick={() => handleEventMarkCurrent(TaskStatus.SKIP)}
-            disabled={!currentTask}
-            className="w-10 h-10 sm:w-14 sm:h-14 rounded-full bg-white border-2 border-slate-200 flex items-center justify-center hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-          >
-            <Undo2 className="w-5 h-5 sm:w-6 sm:h-6 text-sky-400" />
-          </button>
+            <button
+              title="done"
+              type="button"
+              onClick={() => handleEventMarkCurrent(TaskStatus.DONE)}
+              disabled={!currentTask}
+              className={
+                isCurrentStatus(TaskStatus.DONE)
+                  ? "w-10 h-10 sm:w-14 sm:h-14 rounded-full border-2 flex items-center justify-center hover:bg-slate-50 transition-all border-sky-400 bg-sky-50 disabled:opacity-30 disabled:cursor-not-allowed"
+                  : "w-10 h-10 sm:w-14 sm:h-14 rounded-full bg-white border-2 flex items-center justify-center hover:bg-slate-50 transition-all border-slate-200 disabled:opacity-30 disabled:cursor-not-allowed"
+              }
+            >
+              <Check className="w-5 h-5 sm:w-6 sm:h-6 text-sky-400" />
+            </button>
 
-          <button
-            title="next"
-            type="button"
-            onClick={handleEventNext}
-            disabled={!canGoNext()}
-            className="w-10 h-10 sm:w-14 sm:h-14 rounded-full bg-white border-2 border-slate-200 flex items-center justify-center hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-          >
-            <ArrowRight className="w-5 h-5 sm:w-6 sm:h-6 text-sky-400" />
-          </button>
+            <button
+              title="delete"
+              type="button"
+              onClick={() => handleEventMarkCurrent(TaskStatus.DELETE)}
+              disabled={!currentTask}
+              className={
+                isCurrentStatus(TaskStatus.DELETE)
+                  ? "w-10 h-10 sm:w-14 sm:h-14 rounded-full border-2 flex items-center justify-center hover:bg-slate-50 transition-all border-sky-400 bg-sky-50 disabled:opacity-30 disabled:cursor-not-allowed"
+                  : "w-10 h-10 sm:w-14 sm:h-14 rounded-full bg-white border-2 flex items-center justify-center hover:bg-slate-50 transition-all border-slate-200 disabled:opacity-30 disabled:cursor-not-allowed"
+              }
+            >
+              <Trash2 className="w-5 h-5 sm:w-6 sm:h-6 text-sky-400" />
+            </button>
+
+            <button
+              title="next"
+              type="button"
+              onClick={handleEventNext}
+              disabled={!canGoNext()}
+              className="w-10 h-10 sm:w-14 sm:h-14 rounded-full bg-white border-2 border-slate-200 flex items-center justify-center hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+            >
+              <ArrowRight className="w-5 h-5 sm:w-6 sm:h-6 text-sky-400" />
+            </button>
+          </div>
         </div>
 
         {/* Voice Command Status */}
@@ -396,7 +420,7 @@ export default function TaskTriage() {
           <p className="text-xs text-slate-600 mb-1">What I heard: {lastVoiceCommand}</p>
           <p className="text-xs text-slate-500 leading-relaxed">
             Voice control {isVoiceReady ? "listening" : "unavailable"} (say: done, today,
-            postpone, delete, skip, back, next)
+            postpone, agents, delete, skip, back, next)
           </p>
         </div>
       </div>
