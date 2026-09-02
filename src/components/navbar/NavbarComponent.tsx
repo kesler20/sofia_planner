@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { pages, ValidViews, validViewsValues } from "../../pages/Pages";
 import { useAuth0 } from "@auth0/auth0-react";
-import React from "react";
+import * as React from "react";
 import { IoMdLogOut } from "react-icons/io";
 import { MenuItem, Select } from "@mui/material";
 import { ToastContainer } from "react-toastify";
@@ -18,7 +18,8 @@ export default function NavbarComponent() {
     pages[currentView][0].link,
     "currentPage"
   );
-  const { logout, user, isAuthenticated, isLoading, loginWithRedirect } = useAuth0();
+  const { logout, user, isAuthenticated, isLoading, loginWithRedirect, error } =
+    useAuth0();
 
   // ====================== //
   //                        //
@@ -36,10 +37,24 @@ export default function NavbarComponent() {
   }, [isAuthenticated, user]);
 
   React.useEffect(() => {
-    if (!isAuthenticated && !isLoading) {
-      loginWithRedirect();
+    if (isLoading || isAuthenticated) {
+      return;
     }
-  }, [isAuthenticated, isLoading, loginWithRedirect]);
+
+    if (error) {
+      // A real Auth0 error (e.g. a failed silent token refresh) rather than a
+      // genuine logged-out state - redirecting immediately can bounce the user
+      // into a loop on a transient blip, so log it and give it a moment to
+      // clear before forcing a fresh login.
+      console.log("Auth0 error, delaying redirect to login:", error);
+      const retryTimeoutId = window.setTimeout(() => {
+        loginWithRedirect();
+      }, 3000);
+      return () => window.clearTimeout(retryTimeoutId);
+    }
+
+    loginWithRedirect();
+  }, [isAuthenticated, isLoading, loginWithRedirect, error]);
 
   // grab the current url path to see if its a shared link
   if (window.location.pathname.includes("/share/")) {
