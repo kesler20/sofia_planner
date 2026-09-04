@@ -8,7 +8,7 @@ import {
 import { FoodType, MealType } from "../../types";
 import MainButton from "../../components/button/MainButton";
 import { Table } from "../../components/table/Table";
-import { useCachedValue, useStoredValue } from "../../utils";
+import { buildSearchableText, useCachedValue, useStoredValue } from "../../utils";
 import toastFactory, {
   MessageSeverity,
 } from "../../components/notification/ToastMessages";
@@ -165,18 +165,14 @@ export default function EditMeal() {
       return true;
     }
 
-    const searchableText = [
+    return buildSearchableText([
       food.name,
       food.amount,
       food.calories,
       food.protein,
       food.cost ?? "unmatched",
       food.vendor ?? "unmatched",
-    ]
-      .join(" ")
-      .toLowerCase();
-
-    return searchableText.includes(normalizedQuery);
+    ]).includes(normalizedQuery);
   };
 
   // ====================== //

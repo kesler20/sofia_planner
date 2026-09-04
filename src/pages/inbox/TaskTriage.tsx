@@ -5,6 +5,8 @@ import {
   CalendarClock,
   Check,
   Clock,
+  Pause,
+  Play,
   Tag,
   Trash2,
   Undo2,
@@ -33,9 +35,13 @@ type Task = {
   projectId: string;
   list: string;
   title: string;
+  content: string;
+  items: string[];
   dueDate: string | null;
   status: TaskStatus;
 };
+
+type PlayState = "idle" | "playing" | "paused";
 
 type SpeechRecognitionAlternative = { transcript: string };
 type SpeechRecognitionResult = {
@@ -81,8 +87,10 @@ export default function TaskTriage() {
   const [currentIndex, setCurrentIndex] = React.useState<number>(0);
   const [lastVoiceCommand, setLastVoiceCommand] = React.useState<string>("nothing");
   const [isVoiceReady, setIsVoiceReady] = React.useState<boolean>(false);
+  const [playState, setPlayState] = React.useState<PlayState>("idle");
 
   const recognitionRef = React.useRef<SpeechRecognition | null>(null);
+  const utteranceRef = React.useRef<SpeechSynthesisUtterance | null>(null);
   // Keep a ref of the latest tasks/index so voice callbacks read current state.
   const tasksRef = React.useRef<Task[]>([]);
   const indexRef = React.useRef<number>(0);
@@ -105,6 +113,12 @@ export default function TaskTriage() {
   //   SIDE EFFECTS         //
   //                        //
   // ====================== //
+
+  React.useEffect(() => {
+    return () => {
+      window.speechSynthesis.cancel();
+    };
+  }, []);
 
   React.useEffect(() => {
     readResourceInDb<string>(userEmail, RESOURCE_NAME).then(({ result, error }) => {
@@ -165,6 +179,39 @@ export default function TaskTriage() {
   //                        //
   // ====================== //
 
+  // ------------------------------------------------------ Playback
+  const handleEventPlay = () => {
+    const current = tasksRef.current[indexRef.current];
+    if (!current) return;
+
+    const parts = [current.title, current.content];
+    if (current.items.length > 0) {
+      parts.push(`Subtasks: ${current.items.join(", ")}`);
+    }
+    const textToSpeak = parts.filter(Boolean).join(". ");
+
+    window.speechSynthesis.cancel();
+
+    const utterance = new SpeechSynthesisUtterance(textToSpeak);
+    utteranceRef.current = utterance;
+
+    utterance.onstart = () => setPlayState("playing");
+    utterance.onend = () => setPlayState("idle");
+    utterance.onerror = () => setPlayState("idle");
+
+    window.speechSynthesis.speak(utterance);
+  };
+
+  const handleEventPause = () => {
+    window.speechSynthesis.pause();
+    setPlayState("paused");
+  };
+
+  const handleEventResume = () => {
+    window.speechSynthesis.resume();
+    setPlayState("playing");
+  };
+
   // ------------------------------------------------------ Task
   const handleEventPersistStatus = async (
     taskId: string,
@@ -203,10 +250,14 @@ export default function TaskTriage() {
   };
 
   const handleEventNext = () => {
+    window.speechSynthesis.cancel();
+    setPlayState("idle");
     setCurrentIndex((prev) => Math.min(tasksRef.current.length - 1, prev + 1));
   };
 
   const handleEventBack = () => {
+    window.speechSynthesis.cancel();
+    setPlayState("idle");
     setCurrentIndex((prev) => Math.max(0, prev - 1));
   };
 
@@ -271,7 +322,7 @@ export default function TaskTriage() {
   const currentTask = tasks[currentIndex] || null;
 
   return (
-    <div className="h-[80vh] bg-white flex flex-col items-center justify-center p-8">
+    <div className="h-[80vh] bg-white flex flex-col items-center justify-center pt-12 sm:p-8 px-8 pb-8">
       <div className="w-full max-w-2xl flex flex-col items-center">
         {/* Task Info */}
         {currentTask ? (
@@ -311,6 +362,28 @@ export default function TaskTriage() {
             so the row doesn't get cluttered on mobile. */}
         <div className="flex flex-col items-center gap-4 sm:gap-6 w-full">
           <div className="flex items-center justify-center gap-2 sm:gap-6 w-full px-2">
+            <button
+              title="play"
+              type="button"
+              onClick={() => {
+                if (playState === "idle") {
+                  handleEventPlay();
+                } else if (playState === "playing") {
+                  handleEventPause();
+                } else {
+                  handleEventResume();
+                }
+              }}
+              disabled={!currentTask}
+              className="w-10 h-10 sm:w-14 sm:h-14 rounded-full bg-white border-2 border-slate-200 flex items-center justify-center hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+            >
+              {playState === "playing" ? (
+                <Pause className="w-5 h-5 sm:w-6 sm:h-6 text-sky-400" />
+              ) : (
+                <Play className="w-5 h-5 sm:w-6 sm:h-6 text-sky-400" />
+              )}
+            </button>
+
             <button
               title="today"
               type="button"

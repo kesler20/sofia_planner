@@ -1,46 +1,95 @@
 {
+  "project_name": "sofia_planner",
   "home_root": {
-    "snippets": ["protocol", "devOS", "snippets"],
-    "vault": ["protocol", "00 PKM", "3 Resources", "Vault"]
+    "snippets": [
+      "protocol",
+      "devOS",
+      "snippets"
+    ]
   },
   "project_root": {
     "dao_output_config": [
       {
-        "directory": ["src", "project_name", "domain", "dao.py"],
+        "directory": [
+          "src",
+          "sofia_planner",
+          "domain",
+          "dao.py"
+        ],
         "language": "python"
       }
     ],
     "dto_output_config": [
       {
-        "directory": ["src", "project_name", "use_cases", "crud_dto.py"],
+        "directory": [
+          "src",
+          "sofia_planner",
+          "use_cases",
+          "dto.py"
+        ],
         "language": "python"
       }
     ],
     "api_output_config": [
       {
-        "directory": ["src", "project_name", "infrastructure", "crud_routes.py"],
+        "directory": [
+          "src",
+          "sofia_planner",
+          "infrastructure",
+          "routes.py"
+        ],
         "language": "python"
       }
     ],
     "test_api_output_config": [
       {
-        "directory": ["tests", "test_crud_routes.py"],
+        "directory": [
+          "tests",
+          "test_crud_routes.py"
+        ],
         "language": "python"
       }
     ],
-    "test_services_output_directory": ["tests"],
+    "test_services_output_directory": [
+      "tests"
+    ],
     "adapters_output_directory": [
       "src",
-      "project_name",
+      "sofia_planner",
       "infrastructure",
       "sqlalchemy_db_adapter.py"
     ],
     "use_cases_output_directory": [
       "src",
-      "project_name",
+      "sofia_planner",
       "use_cases",
       "crud_use_cases.py"
     ],
-    "app_definition_directory": ["src", "project_name", "infrastructure", "app.py"]
+    "app_definition_directory": [
+      "src",
+      "sofia_planner",
+      "infrastructure",
+      "app.py"
+    ],
+    "contract_sync_output_config": [
+      {
+        "source_language": "python",
+        "output_directory": [
+          "src",
+          "sofia_planner",
+          "schema",
+          "typescript"
+        ]
+      },
+      {
+        "source_language": "typescript",
+        "output_directory": [
+          "src",
+          "sofia_planner",
+          "schema",
+          "python"
+        ]
+      }
+    ]
   }
 }

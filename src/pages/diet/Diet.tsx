@@ -1,7 +1,8 @@
-import React from "react";
+import * as React from "react";
 import CustomModal from "../../components/modal/CustomModal";
+import BasicModal from "../../components/modal/BasicModal";
 import { MenuItem, Select } from "@mui/material";
-import { DietType, MealType, WeekdayType } from "../../types";
+import { DietType, MealType, WEEKDAYS, WeekdayType, WeekPlanType } from "../../types";
 import { IoIosAdd, IoIosRemove } from "react-icons/io";
 import {
   MdCalendarMonth,
@@ -11,7 +12,8 @@ import {
 import { Table } from "../../components/table/Table";
 import MainButton from "../../components/button/MainButton";
 import IOSSwitch from "../../components/switch/IOSSwitch";
-import { useStoredValue } from "../../utils";
+import { useCachedValue, useStoredValue } from "../../utils";
+import WeekBoard, { type DayTotals } from "./WeekBoard";
 import toastFactory, {
   MessageSeverity,
 } from "../../components/notification/ToastMessages";
@@ -180,6 +182,47 @@ export default function Diet() {
     tasteScore: 0,
   });
   const [selectedMeals, setSelectedMeals] = React.useState<MealType[]>([]);
+  const [dietView, setDietView] = useCachedValue<"table" | "board">(
+    email,
+    "table",
+    "dietView"
+  );
+  // Board edits are a draft until saved, unlike the table which persists on change. It
+  // is keyed by diet name so switching diets cannot apply one diet's draft to another.
+  const [boardDraft, setBoardDraft] = useCachedValue<{
+    dietName: string;
+    meals: WeekPlanType;
+  } | null>(email, null, "dietBoardDraft");
+  const [pendingViewSwitch, setPendingViewSwitch] = React.useState(false);
+  const [isBoardWidth, setIsBoardWidth] = React.useState(
+    typeof window !== "undefined" ? window.innerWidth >= 768 : true
+  );
+
+  React.useEffect(() => {
+    const handleResize = () => setIsBoardWidth(window.innerWidth >= 768);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+  const [dayTotals, setDayTotals] = React.useState<Record<WeekdayType, DayTotals>>(
+    () =>
+      WEEKDAYS.reduce(
+        (totals, day) => ({
+          ...totals,
+          [day]: { calories: 0, protein: 0, cost: 0, tasteScore: 0 },
+        }),
+        {} as Record<WeekdayType, DayTotals>
+      )
+  );
+
+  // A draft is session state: a reload refetches from Redis and wins, so clear whatever
+  // localStorage still holds on the first render rather than resurrecting stale edits.
+  const draftClearedOnMount = React.useRef(false);
+  if (!draftClearedOnMount.current) {
+    draftClearedOnMount.current = true;
+    if (boardDraft !== null) {
+      setBoardDraft(null);
+    }
+  }
 
   const updateDietByName = (
     dietName: string,
@@ -192,44 +235,92 @@ export default function Diet() {
     updateDietByName(viewedDiet.name, updater);
   };
 
+  // What the board shows: the unsaved draft when there is one for this diet, else the
+  // saved plan. All totals read from here so the columns update as cards are dragged.
+  const boardMeals =
+    boardDraft && boardDraft.dietName === viewedDiet.name
+      ? boardDraft.meals
+      : viewedDiet.meals;
+  const hasUnsavedBoardChanges =
+    boardDraft !== null && boardDraft.dietName === viewedDiet.name;
+
+  const activeView = dietView === "board" && isBoardWidth ? "board" : "table";
+
+  const handleEventBoardChange = (meals: WeekPlanType) => {
+    setBoardDraft({ dietName: viewedDiet.name, meals });
+  };
+
+  const handleEventSaveBoard = () => {
+    if (!hasUnsavedBoardChanges) return;
+    const meals = boardMeals;
+    updateViewedDiet((diet) => ({ ...diet, meals }));
+    setBoardDraft(null);
+    toastFactory("Week saved", MessageSeverity.SUCCESS);
+  };
+
+  const handleEventDiscardBoard = () => {
+    setBoardDraft(null);
+  };
+
+  // Leaving the board with unsaved drags would show a table that disagrees with what was
+  // just arranged, so ask before switching rather than silently saving or discarding.
+  const handleEventRequestView = (nextView: "table" | "board") => {
+    if (nextView === "table" && hasUnsavedBoardChanges) {
+      setPendingViewSwitch(true);
+      return;
+    }
+    setDietView(nextView);
+  };
+
+  const handleEventRemoveMealFromDay = (day: WeekdayType, mealName: string) => {
+    handleEventBoardChange({
+      ...boardMeals,
+      [day]: boardMeals[day].filter((meal) => meal.name !== mealName),
+    });
+  };
+
   const averageTasteScore = (meals: MealType[]) =>
     meals.length
       ? meals.reduce((sum, m) => sum + m.tasteScore, 0) / meals.length
       : 0;
 
   const calculateTotal = React.useCallback(() => {
-    const dayMeals = viewedDiet.meals[currentDay];
-    const dailyTotal = { calories: 0, protein: 0, cost: 0 };
-    dayMeals.forEach((meal: MealType) => {
-      meal.foods.forEach((food) => {
-        dailyTotal.calories += food.calories * getFoodQuantity(food);
-        dailyTotal.protein += food.protein * getFoodQuantity(food);
-        dailyTotal.cost += (food.cost ?? 0) * getFoodQuantity(food);
-      });
-    });
-    setCurrentDayTotal({ ...dailyTotal, tasteScore: averageTasteScore(dayMeals) });
-
+    // One pass over the week produces every per-day total, the current day's total and
+    // the weekly average, so the board columns and the two summary cards cannot drift.
     const weekTotal = { calories: 0, protein: 0, cost: 0 };
     let allMeals: MealType[] = [];
-    const weekDays = Object.keys(viewedDiet.meals) as WeekdayType[];
+    const weekDays = Object.keys(boardMeals) as WeekdayType[];
+    const totalsByDay = {} as Record<WeekdayType, DayTotals>;
+
     weekDays.forEach((day) => {
-      const meals = viewedDiet.meals[day as WeekdayType];
+      const meals = boardMeals[day];
       allMeals = allMeals.concat(meals);
+      const dailyTotal = { calories: 0, protein: 0, cost: 0 };
       meals.forEach((meal: MealType) => {
         meal.foods.forEach((food) => {
-          weekTotal.calories += food.calories * getFoodQuantity(food);
-          weekTotal.protein += food.protein * getFoodQuantity(food);
-          weekTotal.cost += (food.cost ?? 0) * getFoodQuantity(food);
+          dailyTotal.calories += food.calories * getFoodQuantity(food);
+          dailyTotal.protein += food.protein * getFoodQuantity(food);
+          dailyTotal.cost += (food.cost ?? 0) * getFoodQuantity(food);
         });
       });
+      totalsByDay[day] = {
+        ...dailyTotal,
+        tasteScore: averageTasteScore(meals),
+      };
+      weekTotal.calories += dailyTotal.calories;
+      weekTotal.protein += dailyTotal.protein;
+      weekTotal.cost += dailyTotal.cost;
     });
+
+    setDayTotals(totalsByDay);
+    setCurrentDayTotal(totalsByDay[currentDay]);
     setWeeklyAverage({
       calories: weekTotal.calories / weekDays.length,
       protein: weekTotal.protein / weekDays.length,
       cost: weekTotal.cost / weekDays.length,
       tasteScore: averageTasteScore(allMeals),
     });
-  }, [viewedDiet, currentDay]);
+  }, [boardMeals, currentDay]);
 
   React.useEffect(() => {
     calculateTotal();
@@ -279,6 +370,22 @@ export default function Diet() {
   };
 
   const addMealToDiet = (meal: MealType) => {
+    // On the board an add is part of the unsaved draft, matching every other board edit.
+    if (activeView === "board") {
+      if (boardMeals[currentDay].some((m) => m.name === meal.name)) {
+        toastFactory(
+          `${currentDay} already has ${meal.name}`,
+          MessageSeverity.WARNING
+        );
+        return;
+      }
+      handleEventBoardChange({
+        ...boardMeals,
+        [currentDay]: [...boardMeals[currentDay], meal],
+      });
+      return;
+    }
+
     updateViewedDiet((diet) => {
       if (diet.meals[currentDay].some((m) => m.name === meal.name)) {
         return diet;
@@ -413,7 +520,7 @@ export default function Diet() {
   return (
     <div className="w-full flex flex-col items-center justify-start min-h-screen bg-white">
       {/* Selected meals menu */}
-      {selectedMeals.length > 0 && (
+      {activeView === "table" && selectedMeals.length > 0 && (
         <SelectedMealsMenu
           selectedMeals={selectedMeals}
           onEventCopyMeals={copySelectedMealsToClipboard}
@@ -469,7 +576,13 @@ export default function Diet() {
       </Card>
 
       {/* Main Card */}
-      <Card className="w-[calc(100%-1rem)] md:w-1/2 max-w-[900px] mt-3 md:mt-4 bg-white p-2 md:p-4 py-4 md:py-6">
+      <Card
+        className={`w-[calc(100%-1rem)] mt-3 md:mt-4 bg-white p-2 md:p-4 py-4 md:py-6 ${
+          activeView === "board"
+            ? "md:w-[96%] max-w-[1600px]"
+            : "md:w-1/2 max-w-[900px]"
+        }`}
+      >
         {/* Card Header with the button and the Dropdown */}
         <div className="w-full flex flex-nowrap justify-between md:justify-evenly items-center gap-2">
           <CardTitle
@@ -503,19 +616,83 @@ export default function Diet() {
                 </MenuItem>
               ))}
             </Select>
-            <button
-              type="button"
-              className="px-3 h-10 rounded-lg border border-gray-300 bg-white hover:bg-gray-100 text-gray-700 text-xs font-semibold shadow transition flex items-center gap-1"
-              title="Paste Meals"
-              onClick={pasteSelectedMealsFromClipboard}
-            >
-              <MdContentPaste size={16} />
-              <span className="hidden sm:inline">Paste</span>
-            </button>
+
+            {/* The board is only offered from md up: seven columns cannot fit a phone. */}
+            <div className="hidden md:flex items-center rounded-lg border border-gray-300 shadow overflow-hidden">
+              {(["table", "board"] as const).map((view) => (
+                <button
+                  key={view}
+                  type="button"
+                  className={`px-3 h-10 text-xs font-semibold transition ${
+                    dietView === view
+                      ? "bg-blue-500 text-white"
+                      : "bg-white text-gray-700 hover:bg-gray-100"
+                  }`}
+                  title={view === "table" ? "Day table" : "Week board"}
+                  onClick={() => handleEventRequestView(view)}
+                >
+                  {view === "table" ? "Day" : "Week"}
+                </button>
+              ))}
+            </div>
+
+            {activeView === "table" && (
+              <button
+                type="button"
+                className="px-3 h-10 rounded-lg border border-gray-300 bg-white hover:bg-gray-100 text-gray-700 text-xs font-semibold shadow transition flex items-center gap-1"
+                title="Paste Meals"
+                onClick={pasteSelectedMealsFromClipboard}
+              >
+                <MdContentPaste size={16} />
+                <span className="hidden sm:inline">Paste</span>
+              </button>
+            )}
           </div>
         </div>
 
+        {/* Card Body: the week board on md and up, otherwise the day table */}
+        {activeView === "board" ? (
+          <div className="w-full">
+            <CardSectionDivider title="Week" />
+            <div className="my-4 md:my-6">
+              <WeekBoard
+                meals={boardMeals}
+                dayTotals={dayTotals}
+                currentDay={currentDay}
+                todayWeekday={todayWeekday}
+                quantityOf={getFoodQuantity}
+                onSelectDay={setCurrentDay}
+                onAddMeal={(day) => {
+                  setCurrentDay(day);
+                  setSelectMealModalOpen(true);
+                }}
+                onRemoveMeal={handleEventRemoveMealFromDay}
+                onChange={handleEventBoardChange}
+              />
+            </div>
+            <div className="flex w-full items-center justify-end gap-3">
+              {hasUnsavedBoardChanges && (
+                <button
+                  type="button"
+                  className="text-xs text-blue-500 underline"
+                  onClick={handleEventDiscardBoard}
+                >
+                  Discard changes
+                </button>
+              )}
+              <MainButton
+                text={hasUnsavedBoardChanges ? "Save Changes" : "Saved"}
+                onSubmit={handleEventSaveBoard}
+                className={`!mt-0 !mb-0 shrink-0 ${
+                  hasUnsavedBoardChanges ? "" : "opacity-50 pointer-events-none"
+                }`}
+              />
+            </div>
+          </div>
+        ) : null}
+
         {/* Card Body with the selected meals */}
+        <div className={activeView === "board" ? "hidden" : "contents"}>
         <CardSectionDivider title="Selected Meals" />
         <div className="flex w-full items-center justify-between px-2 mt-2">
           {selectedMeals.length > 0 && (
@@ -594,6 +771,7 @@ export default function Diet() {
               })}
             </tbody>
           </Table>
+        </div>
         </div>
 
         {/* Card Footer with the total */}
@@ -677,6 +855,52 @@ export default function Diet() {
         }
         onSubmit={() => console.log("submit")}
         handleClose={() => setSelectMealModalOpen(false)}
+      />
+
+      <BasicModal
+        open={pendingViewSwitch}
+        handleClose={() => setPendingViewSwitch(false)}
+        customModal={
+          <div className="w-[calc(100vw-2rem)] max-w-[360px] bg-white border border-gray-200 rounded-2xl shadow-md px-5 py-6 flex flex-col items-center">
+            <h2 className="text-xl font-bold mb-2 text-gray-800 font-serif">
+              Unsaved changes
+            </h2>
+            <p className="text-sm text-gray-500 text-center mb-6">
+              The week board has changes that have not been saved.
+            </p>
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              <button
+                type="button"
+                className="px-4 h-10 rounded-lg bg-green-500 hover:bg-green-600 text-white text-xs font-semibold shadow transition"
+                onClick={() => {
+                  handleEventSaveBoard();
+                  setPendingViewSwitch(false);
+                  setDietView("table");
+                }}
+              >
+                Save
+              </button>
+              <button
+                type="button"
+                className="px-4 h-10 rounded-lg bg-red-400 hover:bg-red-500 text-white text-xs font-semibold shadow transition"
+                onClick={() => {
+                  handleEventDiscardBoard();
+                  setPendingViewSwitch(false);
+                  setDietView("table");
+                }}
+              >
+                Discard
+              </button>
+              <button
+                type="button"
+                className="px-4 h-10 rounded-lg border border-gray-300 bg-white hover:bg-gray-100 text-gray-700 text-xs font-semibold shadow transition"
+                onClick={() => setPendingViewSwitch(false)}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        }
       />
     </div>
   );

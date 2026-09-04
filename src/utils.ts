@@ -1,9 +1,15 @@
-import React from "react";
+import * as React from "react";
 import { NoSQLDbServiceResourceType } from "@lib/types";
 import axios from "axios";
 import toastFactory, {
   MessageSeverity,
 } from "./components/notification/ToastMessages";
+
+export function buildSearchableText(
+  fields: Array<string | number | undefined>
+): string {
+  return fields.join(" ").toLowerCase();
+}
 
 const dbUrl = import.meta.env.VITE_PROD_BACKEND_URL;
 

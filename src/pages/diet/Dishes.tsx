@@ -1,8 +1,13 @@
-import React from "react";
+import * as React from "react";
 import MainButton from "../../components/button/MainButton";
 import { FoodAttributeType, FoodType } from "../../types";
 import FoodsTable from "../../components/table/FoodTable";
-import { createResourceInDb, readResourceInDb, useCachedValue } from "../../utils";
+import {
+  buildSearchableText,
+  createResourceInDb,
+  readResourceInDb,
+  useCachedValue,
+} from "../../utils";
 import toastFactory, {
   MessageSeverity,
 } from "../../components/notification/ToastMessages";
@@ -79,7 +84,7 @@ export default function Foods() {
       return true;
     }
 
-    const searchableText = [
+    return buildSearchableText([
       food.name,
       food.calories,
       food.protein,
@@ -88,11 +93,7 @@ export default function Foods() {
       food.cost ?? "unmatched",
       food.amount,
       food.vendor ?? "unmatched",
-    ]
-      .join(" ")
-      .toLowerCase();
-
-    return searchableText.includes(normalizedQuery);
+    ]).includes(normalizedQuery);
   };
 
   const filteredFoods = foodsFromDb.filter(getFoodMatchesSearch);

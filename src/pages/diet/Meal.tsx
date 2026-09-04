@@ -3,7 +3,7 @@ import { ToggleButton } from "@mui/material";
 import { FoodType, MealType } from "../../types";
 import MainButton from "../../components/button/MainButton";
 import { Table } from "../../components/table/Table";
-import { useCachedValue, useStoredValue } from "../../utils";
+import { buildSearchableText, useCachedValue, useStoredValue } from "../../utils";
 import toastFactory, {
   MessageSeverity,
 } from "../../components/notification/ToastMessages";
@@ -130,18 +130,14 @@ export default function Meal() {
       return true;
     }
 
-    const searchableText = [
+    return buildSearchableText([
       food.name,
       food.calories,
       food.protein,
       food.cost ?? "unmatched",
       food.vendor ?? "unmatched",
       food.amount,
-    ]
-      .join(" ")
-      .toLowerCase();
-
-    return searchableText.includes(normalizedQuery);
+    ]).includes(normalizedQuery);
   };
 
   // ====================== //

@@ -21,6 +21,7 @@ type Email = {
   from_email: string;
   content: string;
   status: EmailStatus;
+  add_sender_to_rules?: boolean;
 };
 
 type PlayState = "idle" | "playing" | "paused";
@@ -95,6 +96,7 @@ export default function VoiceEmailReader() {
   const [isVoiceReady, setIsVoiceReady] = React.useState<boolean>(false);
   const [lastVoiceCommand, setLastVoiceCommand] = React.useState<string>("nothing");
   const [isRefreshing, setIsRefreshing] = React.useState<boolean>(false);
+  const [addedSenderToRules, setAddedSenderToRules] = React.useState<boolean>(false);
 
   const utteranceRef = React.useRef<SpeechSynthesisUtterance | null>(null);
   const recognitionRef = React.useRef<SpeechRecognition | null>(null);
@@ -316,6 +318,41 @@ export default function VoiceEmailReader() {
 
     // Persist to database
     updateEmailInDb(currentEmail.id, newStatus);
+  };
+
+  const handleEventAddSenderToArchiveRules = async () => {
+    const filtered = getFilteredEmails();
+    if (filtered.length === 0) return;
+    const currentEmail = filtered[currentIndex];
+
+    const { result, error } = await readResourceInDb<string>(
+      userEmail,
+      "voice_email_reader_emails",
+    );
+    if (error || !result) {
+      console.error("Error reading emails from database:", error);
+      return;
+    }
+
+    const parsed = JSON.parse(result) as Email[];
+    const updated = parsed.map((email) =>
+      email.id !== currentEmail.id
+        ? email
+        : { ...email, add_sender_to_rules: true },
+    );
+
+    const { error: writeError } = await createResourceInDb(
+      userEmail,
+      "voice_email_reader_emails",
+      JSON.stringify(updated),
+    );
+    if (writeError) {
+      console.error("Error writing emails to database:", writeError);
+      return;
+    }
+
+    setAddedSenderToRules(true);
+    setTimeout(() => setAddedSenderToRules(false), 2000);
   };
 
   // ------------------------------------------------------ Account Filter
@@ -699,6 +736,33 @@ export default function VoiceEmailReader() {
                 strokeLinejoin="round"
                 strokeWidth={2}
                 d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"
+              />
+            </svg>
+          </button>
+
+          {/* Add Sender to Auto-Archive Rules Button */}
+          <button
+            title="add sender to auto-archive rules"
+            type="button"
+            onClick={handleEventAddSenderToArchiveRules}
+            disabled={!currentEmail}
+            className={
+              addedSenderToRules
+                ? "w-12 h-12 md:w-14 md:h-14 rounded-full border-2 flex items-center justify-center transition-all border-sky-400 bg-sky-50 disabled:opacity-30 disabled:cursor-not-allowed"
+                : "w-12 h-12 md:w-14 md:h-14 rounded-full bg-white border-2 flex items-center justify-center hover:bg-slate-50 transition-all border-slate-200 disabled:opacity-30 disabled:cursor-not-allowed"
+            }
+          >
+            <svg
+              className="w-6 h-6 text-sky-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4M12 3v4m-2-2h4"
               />
             </svg>
           </button>

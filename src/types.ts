@@ -41,6 +41,16 @@ export const WeekPlanSchema = z.object({
 
 export type WeekdayType = keyof z.infer<typeof WeekPlanSchema>;
 
+export const WEEKDAYS: WeekdayType[] = [
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+  "Sunday",
+];
+
 export const DietSchema = z.object({
   name: z.string(),
   active: z.boolean(),

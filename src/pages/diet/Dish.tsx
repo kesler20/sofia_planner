@@ -1,4 +1,4 @@
-import React from "react";
+import * as React from "react";
 import { FoodType } from "../../types";
 import CustomForm from "../../components/forms/CustomForm";
 import toastFactory, {
