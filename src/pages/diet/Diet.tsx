@@ -4,6 +4,7 @@ import BasicModal from "../../components/modal/BasicModal";
 import { MenuItem, Select } from "@mui/material";
 import { DietType, MealType, WEEKDAYS, WeekdayType, WeekPlanType } from "../../types";
 import { IoIosAdd, IoIosRemove } from "react-icons/io";
+import { FaArrowUpRightFromSquare } from "react-icons/fa6";
 import {
   MdCalendarMonth,
   MdContentCopy,
@@ -566,7 +567,7 @@ export default function Diet() {
               onChange={(e) => setNewDietName(e.target.value)}
             />
             <MainButton
-              text="New Diet"
+              text="Create New Diet"
               onSubmit={createDiet}
               iconOnlyOnMobile
               className="!mt-0 !mb-0 shrink-0"
@@ -592,11 +593,12 @@ export default function Diet() {
 
           <button
             type="button"
-            className="hidden md:flex md:h-auto md:w-full md:flex-1 items-center justify-start text-blue-500 md:mr-4"
+            className="hidden md:inline-flex items-center gap-1 whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold bg-blue-500 text-white hover:bg-blue-600 shadow transition md:mr-auto"
             onClick={openMyFitnessPal}
             title="Open MyFitnessPal food diary"
           >
-            Myfitnesspal Food Diary &gt;
+            <FaArrowUpRightFromSquare size={12} />
+            <span>MyFitnessPal</span>
           </button>
 
           {/* Top select menu */}
@@ -674,7 +676,7 @@ export default function Diet() {
               {hasUnsavedBoardChanges && (
                 <button
                   type="button"
-                  className="text-xs text-blue-500 underline"
+                  className="px-3 h-10 rounded-lg border-[2px] border-gray-200 bg-red-300 hover:bg-red-200 text-gray-800 text-xs font-semibold shadow transition whitespace-nowrap"
                   onClick={handleEventDiscardBoard}
                 >
                   Discard changes
@@ -774,7 +776,10 @@ export default function Diet() {
         </div>
         </div>
 
-        {/* Card Footer with the total */}
+        {/* Card Footer with the total. The board's columns each show their own day
+            total, so this only earns its place in the table view. */}
+        {activeView === "table" && (
+          <>
         <CardSectionDivider title="Daily Total" />
         <Card className="flex items-center justify-evenly min-h-[70px] mt-4 px-2 md:px-4 py-3 bg-white">
           <div className="grid grid-cols-2 md:flex md:flex-row w-full items-center justify-evenly gap-2">
@@ -792,10 +797,18 @@ export default function Diet() {
             </p>
           </div>
         </Card>
+          </>
+        )}
       </Card>
 
       {/* Weekly Average */}
-      <Card className="w-[calc(100%-1rem)] md:w-1/2 max-w-[900px] mt-3 md:mt-4 mb-8 bg-white p-2 md:p-4 py-4 md:py-6">
+      <Card
+        className={`w-[calc(100%-1rem)] mt-3 md:mt-4 mb-8 bg-white p-2 md:p-4 py-4 md:py-6 ${
+          activeView === "board"
+            ? "md:w-[96%] max-w-[1600px]"
+            : "md:w-1/2 max-w-[900px]"
+        }`}
+      >
         <CardSectionDivider title="Weekly Average" />
         <Card className="flex items-center justify-evenly min-h-[70px] mt-4 px-2 md:px-4 py-3 bg-white">
           <div className="grid grid-cols-2 md:flex md:flex-row w-full items-center justify-evenly gap-2">

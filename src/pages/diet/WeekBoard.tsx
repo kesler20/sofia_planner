@@ -179,7 +179,7 @@ function DayColumn(props: {
   // `w-[200px]` alongside it loses and every column renders full width, leaving only the
   // first one on screen.
   return (
-    <div className="shrink-0 w-[200px] flex">
+    <div className="flex-1 min-w-[180px] flex">
     <Card
       className={`bg-white p-2 flex flex-col ${
         props.isCurrent ? "ring-2 ring-blue-400" : ""
