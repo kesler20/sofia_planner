@@ -1,5 +1,8 @@
 import * as React from "react";
 import { readResourceInDb, useCachedValue, createResourceInDb } from "../../utils";
+import toastFactory, {
+  MessageSeverity,
+} from "../../components/notification/ToastMessages";
 
 // ====================== //
 //                        //
@@ -22,6 +25,7 @@ type Email = {
   content: string;
   status: EmailStatus;
   add_sender_to_rules?: boolean;
+  sent_at?: string | null;
 };
 
 type PlayState = "idle" | "playing" | "paused";
@@ -96,6 +100,7 @@ export default function VoiceEmailReader() {
   const [isVoiceReady, setIsVoiceReady] = React.useState<boolean>(false);
   const [lastVoiceCommand, setLastVoiceCommand] = React.useState<string>("nothing");
   const [isRefreshing, setIsRefreshing] = React.useState<boolean>(false);
+  const [isClearing, setIsClearing] = React.useState<boolean>(false);
   const [addedSenderToRules, setAddedSenderToRules] = React.useState<boolean>(false);
 
   const utteranceRef = React.useRef<SpeechSynthesisUtterance | null>(null);
@@ -405,6 +410,62 @@ export default function VoiceEmailReader() {
     window.location.reload();
   };
 
+  /**
+   * Drop untriaged items from one voice reader queue, keeping anything that already
+   * carries a decision. InboxProcessingUseCase has not necessarily applied those yet, and
+   * wiping them would silently discard the triage choice rather than the queue.
+   */
+  const clearPendingFromQueue = async (resourceName: string) => {
+    const { result, error } = await readResourceInDb<string>(userEmail, resourceName);
+    if (error) {
+      return { removed: 0, kept: [] as { status?: string }[], failed: true };
+    }
+    if (!result) {
+      return { removed: 0, kept: [] as { status?: string }[], failed: false };
+    }
+
+    const parsed = JSON.parse(result) as { status?: string }[];
+    const kept = parsed.filter((item) => item.status !== EmailStatus.PENDING);
+    const { error: writeError } = await createResourceInDb(
+      userEmail,
+      resourceName,
+      JSON.stringify(kept),
+    );
+
+    return {
+      removed: writeError ? 0 : parsed.length - kept.length,
+      kept,
+      failed: Boolean(writeError),
+    };
+  };
+
+  const handleEventClearQueues = async () => {
+    setIsClearing(true);
+
+    const emailResult = await clearPendingFromQueue("voice_email_reader_emails");
+    const taskResult = await clearPendingFromQueue("voice_task_reader_tasks");
+
+    if (emailResult.failed || taskResult.failed) {
+      toastFactory("Could not clear the queues", MessageSeverity.ERROR);
+      setIsClearing(false);
+      return;
+    }
+
+    setEmails(emailResult.kept as Email[]);
+    setCurrentIndex(0);
+    setProcessedEmailsCount(0);
+
+    const removed = emailResult.removed + taskResult.removed;
+    const kept = emailResult.kept.length + taskResult.kept.length;
+    toastFactory(
+      kept > 0
+        ? `Cleared ${removed} untriaged, kept ${kept} awaiting sync`
+        : `Cleared ${removed} untriaged items`,
+      MessageSeverity.SUCCESS,
+    );
+    setIsClearing(false);
+  };
+
   const handleEventSelectAccount = (account: string | null) => {
     setSelectedAccount(account);
     setCurrentIndex(0);
@@ -577,6 +638,17 @@ export default function VoiceEmailReader() {
           >
             Reset
           </button>
+
+          {/* Clears both voice reader queues, keeping any undrained decisions. */}
+          <button
+            type="button"
+            onClick={handleEventClearQueues}
+            disabled={isClearing}
+            title="Clear untriaged emails and tasks from both queues"
+            className="px-3 py-1 rounded-full text-sm bg-red-300 text-slate-800 hover:bg-red-200 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {isClearing ? "Clearing..." : "Clear queues"}
+          </button>
         </div>
 
         {/* Email Info */}
@@ -589,6 +661,11 @@ export default function VoiceEmailReader() {
             <p className="text-sm text-slate-600 mb-2">
               From: {currentEmail.from_email}
             </p>
+            {currentEmail.sent_at && (
+              <p className="text-xs text-slate-400 mb-2">
+                Sent: {new Date(currentEmail.sent_at).toLocaleString()}
+              </p>
+            )}
             <p className="text-xs text-slate-400 mb-4">
               Status: {currentEmail.status}
             </p>

@@ -264,6 +264,15 @@ export default function TaskTriage() {
   const handleEventVoiceCommand = (command: string) => {
     const keyword = command.split(" ")[0];
     switch (keyword) {
+      case "play":
+        if (playState === "idle") {
+          handleEventPlay();
+        } else if (playState === "playing") {
+          handleEventPause();
+        } else {
+          handleEventResume();
+        }
+        break;
       case "done":
         handleEventMarkCurrent(TaskStatus.DONE);
         break;
@@ -322,7 +331,7 @@ export default function TaskTriage() {
   const currentTask = tasks[currentIndex] || null;
 
   return (
-    <div className="h-[80vh] bg-white flex flex-col items-center justify-center pt-12 sm:p-8 px-8 pb-8">
+    <div className="h-[80vh] bg-white flex flex-col items-center justify-center pt-20 sm:p-8 px-8 pb-8">
       <div className="w-full max-w-2xl flex flex-col items-center">
         {/* Task Info */}
         {currentTask ? (
@@ -492,8 +501,8 @@ export default function TaskTriage() {
         <div className="mt-8 text-center w-full max-w-sm px-4">
           <p className="text-xs text-slate-600 mb-1">What I heard: {lastVoiceCommand}</p>
           <p className="text-xs text-slate-500 leading-relaxed">
-            Voice control {isVoiceReady ? "listening" : "unavailable"} (say: done, today,
-            postpone, agents, delete, skip, back, next)
+            Voice control {isVoiceReady ? "listening" : "unavailable"} (say: play, done,
+            today, postpone, agents, delete, skip, back, next)
           </p>
         </div>
       </div>
