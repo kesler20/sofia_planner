@@ -9,6 +9,7 @@ import VoiceEmailReader from "./inbox/VoiceEmailReader";
 import TaskTriage from "./inbox/TaskTriage";
 import InvestmentPlannerPage from "./finance/InvestmentPlannerPage";
 import AnalyticsPage from "./analytics/AnalyticsPage";
+import HomePage from "./home/HomePage";
 
 type PageMetaData = {
   name: string;
@@ -17,8 +18,8 @@ type PageMetaData = {
   shareComponent?: React.ComponentType;
 };
 
-export type ValidViews = "diet" | "finance" | "inbox" | "analytics";
-export const validViewsValues = ["diet", "finance", "inbox", "analytics"];
+export type ValidViews = "home" | "diet" | "finance" | "inbox" | "analytics";
+export const validViewsValues = ["home", "diet", "finance", "inbox", "analytics"];
 
 export type Pages = {
   [K in ValidViews]: PageMetaData[];
@@ -28,6 +29,13 @@ export type Pages = {
  * a list containing the metadata of the pages, including { name, pageIcon and link, pageComponent }
  */
 export const pages: Pages = {
+  home: [
+    {
+      name: "Home",
+      link: "/home",
+      pageComponent: HomePage,
+    },
+  ],
   finance: [
     {
       name: "Plan Investments",
@@ -86,7 +94,7 @@ export const pages: Pages = {
 export default function Pages() {
   return (
     <Routes>
-      <Route index element={<Diet />} />
+      <Route index element={<HomePage />} />
       {Object.values(pages)
         .flat()
         .map((pageMetaData, index) => {

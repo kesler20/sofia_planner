@@ -21,7 +21,7 @@ import toastFactory, {
   MessageSeverity,
 } from "../../components/notification/ToastMessages";
 import CustomForm from "../../components/forms/CustomForm";
-import { IoIosAdd } from "react-icons/io";
+import { IoIosAdd, IoIosStar, IoIosStarOutline } from "react-icons/io";
 
 // ====================== //
 //                        //
@@ -29,7 +29,7 @@ import { IoIosAdd } from "react-icons/io";
 //                        //
 // ====================== //
 
-type AnalyticsView = "checkins" | "categories" | "items";
+type AnalyticsView = "pinned" | "checkins" | "categories" | "items";
 type GroupBy = "week" | "month" | "year";
 type ChartMode = "burndown" | "burnup" | "timeSeries" | "pareto";
 type ResolutionTargets = Record<GroupBy, number>;
@@ -413,6 +413,41 @@ function formatCorrection(actual: number, target: number, unit: string): string 
   return `${sign}${formatValue(Math.abs(correction), unit)} to target`;
 }
 
+type MetricStats = {
+  dailyRate: number;
+  resolutionRate: number;
+  dailyTone: MetricTone;
+  resolutionTone: MetricTone;
+  dailyCorrection: string;
+  resolutionCorrection: string;
+};
+
+function computeMetricStats(
+  rows: WarehouseRow[],
+  items: AnalyticsItem[],
+  groupBy: GroupBy,
+  target: number,
+  unit: string,
+): MetricStats {
+  const windowRows = currentWindowRows(rows, groupBy);
+  const periodTotal = windowRows.reduce(
+    (sum, row) =>
+      sum + items.reduce((itemSum, item) => itemSum + itemValueForRow(row, item), 0),
+    0,
+  );
+  const dailyRate = periodTotal / daysInWindow(groupBy);
+  const resolutionRate = periodTotal;
+  const dailyTarget = target / daysInWindow(groupBy);
+  return {
+    dailyRate,
+    resolutionRate,
+    dailyTone: metricTone(dailyRate, dailyTarget),
+    resolutionTone: metricTone(resolutionRate, target),
+    dailyCorrection: formatCorrection(dailyRate, dailyTarget, unit),
+    resolutionCorrection: formatCorrection(resolutionRate, target, unit),
+  };
+}
+
 // ====================== //
 //                        //
 //   UI COMPONENTS        //
@@ -440,6 +475,7 @@ function Sidebar(props: {
   onEventSelectView: (view: AnalyticsView) => void;
 }) {
   const views: { id: AnalyticsView; label: string }[] = [
+    { id: "pinned", label: "Pinned" },
     { id: "checkins", label: "Check-ins" },
     { id: "categories", label: "Categories" },
     { id: "items", label: "Items" },
@@ -962,6 +998,104 @@ function CheckInsView(props: {
   );
 }
 
+function PinnedMetricTile(props: {
+  item: AnalyticsItem;
+  rows: WarehouseRow[];
+  groupBy: GroupBy;
+  onEventUnpin: (itemId: string) => void;
+  onEventOpen: (itemId: string) => void;
+}) {
+  const target = targetForResolution(props.item, props.groupBy);
+  const { resolutionRate, resolutionTone, resolutionCorrection } = computeMetricStats(
+    props.rows,
+    [props.item],
+    props.groupBy,
+    target,
+    props.item.unit,
+  );
+  return (
+    <div
+      className="relative cursor-pointer transition-transform hover:-translate-y-0.5"
+      role="button"
+      tabIndex={0}
+      title={`Open ${props.item.name} dashboard`}
+      onClick={() => props.onEventOpen(props.item.id)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          props.onEventOpen(props.item.id);
+        }
+      }}
+    >
+      <button
+        type="button"
+        title="Unpin"
+        onClick={(event) => {
+          event.stopPropagation();
+          props.onEventUnpin(props.item.id);
+        }}
+        className="absolute right-2 top-2 z-10 text-amber-400 hover:text-amber-600"
+      >
+        <IoIosStar size={16} />
+      </button>
+      <StatTile
+        label={`${props.item.name} (${props.groupBy})`}
+        value={formatValue(resolutionRate, props.item.unit)}
+        tone={resolutionTone}
+        correction={resolutionCorrection}
+        correctionTone={resolutionTone}
+      />
+    </div>
+  );
+}
+
+function PinnedView(props: {
+  items: AnalyticsItem[];
+  pinnedItemIds: string[];
+  rows: WarehouseRow[];
+  groupBy: GroupBy;
+  onEventChangeGroupBy: (groupBy: GroupBy) => void;
+  onEventUnpin: (itemId: string) => void;
+  onEventOpen: (itemId: string) => void;
+}) {
+  const pinnedItems = props.pinnedItemIds
+    .map((id) => props.items.find((item) => item.id === id))
+    .filter((item): item is AnalyticsItem => Boolean(item));
+
+  return (
+    <div className="flex flex-1 flex-col gap-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+          Pinned metrics
+        </h2>
+        <GroupByControl
+          value={props.groupBy}
+          onEventChange={props.onEventChangeGroupBy}
+        />
+      </div>
+      {pinnedItems.length === 0 ? (
+        <p className="text-sm text-gray-500">
+          No pinned metrics yet. Open an item in the Items view and tap the star to
+          pin it here.
+        </p>
+      ) : (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+          {pinnedItems.map((item) => (
+            <PinnedMetricTile
+              key={item.id}
+              item={item}
+              rows={props.rows}
+              groupBy={props.groupBy}
+              onEventUnpin={props.onEventUnpin}
+              onEventOpen={props.onEventOpen}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function DashboardView(props: {
   kind: "category" | "item";
   categories: AnalyticsCategory[];
@@ -970,11 +1104,13 @@ function DashboardView(props: {
   selectedId: string;
   groupBy: GroupBy;
   chartMode: ChartMode;
+  pinnedItemIds: string[];
   onEventSelect: (id: string) => void;
   onEventChangeGroupBy: (groupBy: GroupBy) => void;
   onEventChangeChartMode: (chartMode: ChartMode) => void;
   onEventChangeItem: (item: AnalyticsItem) => void;
   onEventChangeCategory: (category: AnalyticsCategory) => void;
+  onEventTogglePin: (itemId: string) => void;
 }) {
   const selectedCategory =
     props.categories.find((category) => category.id === props.selectedId) ??
@@ -1015,25 +1151,14 @@ function DashboardView(props: {
     props.groupBy,
     target,
   );
-  const periodTotal = windowRows.reduce(
-    (sum, row) =>
-      sum +
-      dashboardItems.reduce(
-        (itemSum, item) => itemSum + itemValueForRow(row, item),
-        0,
-      ),
-    0,
-  );
-  const dailyRate = periodTotal / daysInWindow(props.groupBy);
-  const resolutionRate = periodTotal;
-  const dailyTone = metricTone(
+  const {
     dailyRate,
-    target / daysInWindow(props.groupBy),
-  );
-  const resolutionTone = metricTone(resolutionRate, target);
-  const dailyTarget = target / daysInWindow(props.groupBy);
-  const dailyCorrection = formatCorrection(dailyRate, dailyTarget, unit);
-  const resolutionCorrection = formatCorrection(resolutionRate, target, unit);
+    resolutionRate,
+    dailyTone,
+    resolutionTone,
+    dailyCorrection,
+    resolutionCorrection,
+  } = computeMetricStats(props.rows, dashboardItems, props.groupBy, target, unit);
   const pieData =
     props.kind === "category"
       ? categoryBreakdown(windowRows, dashboardItems, props.groupBy)
@@ -1087,6 +1212,28 @@ function DashboardView(props: {
           )}
           onEventChange={props.onEventSelect}
         />
+        {props.kind === "item" && selectedItem && (
+          <button
+            type="button"
+            title={
+              props.pinnedItemIds.includes(selectedItem.id)
+                ? "Unpin from Pinned view"
+                : "Pin to Pinned view"
+            }
+            onClick={() => props.onEventTogglePin(selectedItem.id)}
+            className={
+              props.pinnedItemIds.includes(selectedItem.id)
+                ? "flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-full bg-amber-400 text-white"
+                : "flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-full border border-gray-300 text-gray-400 hover:border-amber-400 hover:text-amber-400"
+            }
+          >
+            {props.pinnedItemIds.includes(selectedItem.id) ? (
+              <IoIosStar size={18} />
+            ) : (
+              <IoIosStarOutline size={18} />
+            )}
+          </button>
+        )}
         {props.kind === "item" && selectedItem && (
           <SelectField
             label="Category"
@@ -1178,6 +1325,9 @@ export default function AnalyticsPage() {
   const [observations, setObservations, isObservationsLoading] = useStoredValue<
     ManualObservation[]
   >(email, [], "analytics_manual_observations");
+  const [pinnedItemIds, setPinnedItemIds, isPinnedItemsLoading] = useStoredValue<
+    string[]
+  >(email, [], "analytics_pinned_items");
   const [currentView, setCurrentView] = React.useState<AnalyticsView>("checkins");
   const [selectedCategoryId, setSelectedCategoryId] =
     React.useState(DEFAULT_CATEGORY_ID);
@@ -1362,6 +1512,16 @@ export default function AnalyticsPage() {
     setCategories((prev) =>
       prev.map((existing) => (existing.id === category.id ? category : existing)),
     );
+  const handleEventTogglePin = (itemId: string) =>
+    setPinnedItemIds((prev) =>
+      prev.includes(itemId)
+        ? prev.filter((id) => id !== itemId)
+        : [...prev, itemId],
+    );
+  const handleEventOpenPinnedItem = (itemId: string) => {
+    setSelectedItemId(itemId);
+    setCurrentView("items");
+  };
 
   const handleEventSaveCheckIns = (
     dateISO: string,
@@ -1417,6 +1577,7 @@ export default function AnalyticsPage() {
     isCategoriesLoading ||
     isItemsLoading ||
     isObservationsLoading ||
+    isPinnedItemsLoading ||
     isWarehouseLoading
   ) {
     return <LoadingAnimation />;
@@ -1438,6 +1599,17 @@ export default function AnalyticsPage() {
       />
 
       {/* Main view */}
+      {currentView === "pinned" && (
+        <PinnedView
+          items={items}
+          pinnedItemIds={pinnedItemIds}
+          rows={visibleRows}
+          groupBy={groupBy}
+          onEventChangeGroupBy={setGroupBy}
+          onEventUnpin={handleEventTogglePin}
+          onEventOpen={handleEventOpenPinnedItem}
+        />
+      )}
       {currentView === "checkins" && (
         <CheckInsView
           categories={safeCategories}
@@ -1457,11 +1629,13 @@ export default function AnalyticsPage() {
           selectedId={selectedCategoryId}
           groupBy={groupBy}
           chartMode={chartMode}
+          pinnedItemIds={pinnedItemIds}
           onEventSelect={setSelectedCategoryId}
           onEventChangeGroupBy={setGroupBy}
           onEventChangeChartMode={setChartMode}
           onEventChangeItem={handleEventChangeItem}
           onEventChangeCategory={handleEventChangeCategory}
+          onEventTogglePin={handleEventTogglePin}
         />
       )}
       {currentView === "items" && (
@@ -1473,11 +1647,13 @@ export default function AnalyticsPage() {
           selectedId={selectedItemId}
           groupBy={groupBy}
           chartMode={chartMode}
+          pinnedItemIds={pinnedItemIds}
           onEventSelect={setSelectedItemId}
           onEventChangeGroupBy={setGroupBy}
           onEventChangeChartMode={setChartMode}
           onEventChangeItem={handleEventChangeItem}
           onEventChangeCategory={handleEventChangeCategory}
+          onEventTogglePin={handleEventTogglePin}
         />
       )}
     </div>
