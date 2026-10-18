@@ -82,6 +82,36 @@ const normalizeDbReadPayload = (data: unknown) => {
 // ================== //
 
 // @see server.ts
+export const readResourceSnapshot = async (resourcePath: string, resourceName: string): Promise<Record<string, unknown> | null> => {
+  try {
+    const response = await axios.get(`${dbUrl}/${resourcePath}/${resourceName}`);
+    const value: unknown = typeof response.data === "string" ? JSON.parse(response.data) : response.data;
+    if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Invalid resource snapshot");
+    return value as Record<string, unknown>;
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.status === 404) return null;
+    throw error;
+  }
+};
+
+export const compareAndSwapResourceInDb = async (
+  resourcePath: string,
+  resourceName: string,
+  expected: unknown,
+  replacement: unknown
+): Promise<void> => {
+  const root = dbUrl.replace(/\/resources\/?$/, "");
+  const normalize = (value: unknown) => Array.isArray(value) ? { key: value } : value;
+  try {
+    const response = await axios.put(`${root}/v1/resources/${resourcePath}/${resourceName}`, { expected: normalize(expected), replacement: normalize(replacement) });
+    if (response.data?.applied !== true) throw new Error("Resource save was not confirmed");
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.status === 409) throw new Error("This resource changed. Refresh before saving.");
+    if (axios.isAxiosError(error) && error.response?.status === 404) throw new Error("Conditional saves are unavailable on this backend.");
+    throw error;
+  }
+};
+
 export const createResourceInDb = async <TResponse>(
   resourcePath: string,
   resourceName: string,
@@ -247,45 +277,72 @@ export const useStoredValue = <T>(
   username: string,
   defaultValue: T,
   key: string,
-  pageLimit?: number
-): [T, React.Dispatch<React.SetStateAction<T>>, boolean] => {
+  pageLimit?: number,
+  validate?: (value: unknown) => T
+): [T, React.Dispatch<React.SetStateAction<T>>, boolean, string | null] => {
   const [value, setValue] = React.useState<T>(defaultValue);
-  const [isLoading, setIsLoading] = React.useState<boolean>(true);
+  const [isLoading, setIsLoading] = React.useState(true);
+  const [loadError, setLoadError] = React.useState<string | null>(null);
+  const validator = React.useRef(validate);
+  validator.current = validate;
+  const defaults = React.useRef(defaultValue);
+  defaults.current = defaultValue;
+  const loaded = React.useRef<{ username: string; key: string; content: string } | null>(null);
+  const writes = React.useRef(Promise.resolve());
 
-  // initial load
   React.useEffect(() => {
-    readResourceInDb<string>(username, key).then(({ result, error }) => {
-      if (error) {
-        console.error(`Error reading ${key} from database`, error);
+    let active = true;
+    loaded.current = null;
+    setIsLoading(true);
+    setLoadError(null);
+    const load = async () => {
+      try {
+        const { result, error } = await readResourceInDb<string>(username, key);
+        // Only a confirmed missing resource may start from defaults.
+        if (error && !(axios.isAxiosError(error) && error.response?.status === 404)) throw error;
+        if (!error && result === undefined) throw new Error("Resource read was not confirmed");
+        let next = result === undefined ? defaults.current : JSON.parse(result) as T;
+        if (validator.current) next = validator.current(next);
+        if (pageLimit && Array.isArray(next)) next = next.slice(0, pageLimit) as T;
+        if (!active) return;
+        loaded.current = { username, key, content: JSON.stringify(next) };
+        setValue(next);
+      } catch {
+        if (!active) return;
+        // Keep failed or malformed reads read-only, never persist their defaults.
+        setLoadError(`Unable to load ${key}. Refresh before editing.`);
+        console.log("Error loading stored resource", key);
         toastFactory(`Failed to load ${key} from database`, MessageSeverity.ERROR);
+      } finally {
+        if (active) setIsLoading(false);
       }
-      if (result) {
-        const parsed = JSON.parse(result) as T;
-        if (pageLimit && Array.isArray(parsed)) {
-          const limited = parsed.slice(0, pageLimit) as unknown as T;
-          setValue(limited);
-        } else {
-          setValue(parsed);
-        }
-      }
-      setIsLoading(false);
-    });
-  }, []);
+    };
+    void load();
+    return () => { active = false; };
+  }, [username, key, pageLimit]);
 
-  // persist on change
+  const handleEventChange = React.useCallback<React.Dispatch<React.SetStateAction<T>>>((update) => {
+    if (loaded.current?.username !== username || loaded.current?.key !== key) return;
+    setValue(update);
+  }, [username, key]);
+
   React.useEffect(() => {
-    if (isLoading) return;
+    const source = loaded.current;
+    if (isLoading || !source || source.username !== username || source.key !== key) return;
     const content = JSON.stringify(value);
-    createResourceInDb<string>(username, key, content).then(({ result, error }) => {
-      if (error) {
-        console.error(`Error saving ${key} to database`, error);
+    // Hydration and unchanged values are reads, not edits.
+    if (content === source.content) return;
+    source.content = content;
+    // Serialize edits so a slower old request cannot overwrite a newer one.
+    writes.current = writes.current.then(async () => {
+      const { error, result } = await createResourceInDb(username, key, content);
+      if (error || result === undefined || result === false) {
+        console.log("Error saving stored resource", key);
         toastFactory(`Failed to save ${key} to database`, MessageSeverity.ERROR);
       }
-      if (result) {
-        console.log(`Successfully saved ${key} to database`);
-      }
     });
-  }, [value, isLoading]);
+  }, [value, isLoading, username, key]);
 
-  return [value, setValue, isLoading];
+  const waitingForResource = !loadError && (loaded.current?.username !== username || loaded.current?.key !== key);
+  return [value, handleEventChange, isLoading || waitingForResource, loadError];
 };

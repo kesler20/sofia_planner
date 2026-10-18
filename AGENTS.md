@@ -1,6 +1,6 @@
+# Frontend Development
 
 You are a code assistant working in a React + TypeScript codebase.
-
 ## 0. Prime Directive
 
 This codebase uses a simple, event-driven React style:
@@ -20,6 +20,15 @@ When using react functions and when using libraries in general, try to import th
 `import * as React from "react"` this will allow you to access most of its functionality like the following: `React.useState`, `React.useEffect` etc... which I prefer more.
 
 Overall keep React code boring, explicit, and easy to scan.
+
+### Verification
+
+Do not write automated tests for Kesler's React applications unless he explicitly
+asks for them. This includes tests for their TypeScript helpers, hooks and data
+adapters. Do not add test frameworks, fixtures or test scripts without that
+instruction. Verify changes with type checking, linting, builds and direct browser
+checks as appropriate.
+
 
 ---
 
@@ -69,8 +78,43 @@ Use headings like:
 
 ## 3. Page Template (Block Comments + OBSERVE STATE + UTILS)
 
+### 3.1 File Header Comment
+
+Every file that exports a page or a component starts with a full-width block comment placed after the imports and before the export. This is separate from the internal section dividers in 3.3 — it documents the file as a whole, not a region within it.
+
+Structure: border, blank line, the name in caps (matching the component/page name), blank line, a 2-4 line description, blank line, border. The description must say two things: what the component renders/does, and where it sits in the app — its relationship to parent/child components, which direction data or events flow, and any spec references (e.g. `PRD §5.2`) if they exist.
+
+```tsx
+// ============================================================ //
+//                                                              //
+//   NODE EDITOR PANEL                                          //
+//                                                              //
+//   Authoring surface for a single policy node (PRD §5.2). The //
+//   body is edited as plain markdown; typed references are     //
+//   parsed live into chips, and a palette inserts new tokens.  //
+//   Edits are emitted upward — the page owns persistence.      //
+//                                                              //
+// ============================================================ //
+```
+
+A page's header additionally states what the page lists/renders and what the primary user actions do (e.g. "Pausing/resuming writes through the API; opening a session routes to the policy editor"). A leaf component's header states what it renders and, if it is not self-contained, how it communicates with its parent (e.g. "Dumb top navigation bar... Routing is the side-effect, so it leans on NavLink rather than emitting events upward").
+
+```tsx
+// ============================================================ //
+//                                                              //
+//   SESSIONS PAGE                                              //
+//                                                              //
+//   Lists agent-loop runs with summary tiles, status filters,  //
+//   and search. Pausing/resuming writes through the API;       //
+//   opening a session routes to the policy editor (PRD §5).    //
+//                                                              //
+// ============================================================ //
+```
+
+### 3.2 Page Body Sections
+
 Use these sections in this order. Keep each section short.
-IT IS IMPORTANT TO NOTE THAT BLOCK COMMENTS HAVE 5 LINES NOT 3.
+Block comments MUST have exactly 5 lines. 3-line block comments are categorically forbidden.
 ```tsx
 export default function SomePage() {
   
@@ -130,25 +174,27 @@ export default function SomePage() {
 }
 ```
 
-### 3.1 OBSERVE STATE
+### 3.3 OBSERVE STATE
 
 Keep an “OBSERVE STATE” section near the top of the page component and log the important state variables.
 
 Example:
 
 ```ts
+// Keep important page state visible together during development.
 console.log("items", items);
 console.log("selectedCollectionId", selectedCollectionId);
 console.log("hasUnsavedChanges", hasUnsavedChanges);
 ```
 
-### 3.2 UI Section Comments
+### 3.4 UI Section Comments
 
 Always add JSX comments to separate major UI regions.
 
 Example:
 
 ```tsx
+/* Separate the page's major visual regions in the JSX. */
 return (
   <div>
     {/* Top bar */}
@@ -173,6 +219,7 @@ Prefer `useState` unless the state transitions are genuinely complex.
 #### Update an object by field (guard + shallow copy)
 
 ```ts
+// Update one object only when the current entity matches the requested target.
 setItem((prev) => {
   if (prev.id !== itemId) return prev;
   return { ...prev, [field]: value };
@@ -182,6 +229,7 @@ setItem((prev) => {
 #### Update an array item (map + guard)
 
 ```ts
+// Replace only the matching array item while preserving every other item.
 setItems((prev) =>
   prev.map((it) => (it.id !== itemId ? it : { ...it, [field]: value }))
 );
@@ -190,24 +238,28 @@ setItems((prev) =>
 #### Append to an array
 
 ```ts
+// Append a new item without mutating the existing array.
 setItems((prev) => [...prev, newItem]);
 ```
 
 #### Replace an object
 
 ```ts
+// Replace the current object when no previous fields need to be retained.
 setCollection(newCollection);
 ```
 
 #### Delete from an array
 
 ```ts
+// Remove the matching item without mutating the existing array.
 setItems((prev) => prev.filter((it) => it.id !== itemId));
 ```
 
 #### Append into an array field (within an object)
 
 ```ts
+// Append a nested value while preserving the other object fields.
 setItem((prev) => {
   if (prev.id !== itemId) return prev;
   return { ...prev, tags: [...prev.tags, newTag] };
@@ -233,6 +285,47 @@ Use more advanced patterns only when strictly necessary.
 * Own all event handlers (or `send(...)` when using `useReducer` / `xstate`).
 
 Rule: each page is responsible for its own state. Avoid cross-page shared state unless absolutely required.
+
+### 5.3 Prop Types: Always Inline
+
+Define prop types inline on the component function. Never define a separate `type Props = { ... }` unless that type is explicitly referenced elsewhere in the code (e.g. passed to a utility function or imported by another module).
+
+```tsx
+// CORRECT: inline
+function ItemRow(props: {
+  item: Item;
+  onEventDeleteItem: (itemId: string) => void;
+}) { ... }
+
+// WRONG: separate type that is never referenced elsewhere
+type ItemRowProps = { item: Item; onEventDeleteItem: (itemId: string) => void };
+function ItemRow(props: ItemRowProps) { ... }
+```
+
+### 5.4 Layout and Structure Stay in the Page Component
+
+Rows, groups, grids, and overall structural `div`/`span` wrappers belong in the page component's JSX, not inside dumb child components — unless strictly necessary (e.g. a component that is inherently a row or a card by design).
+
+Keep the skeleton of the layout visible at the page level so the structure is easy to scan.
+
+```tsx
+// CORRECT: structure is in the page
+return (
+  <div className="grid grid-cols-2 gap-4">
+    {items.map((item) => (
+      <ItemCard key={item.id} item={item} onEventSelect={handleEventSelectItem} />
+    ))}
+  </div>
+);
+
+function ItemCard(props: { ... }) {
+  return (
+    <div className="grid grid-cols-2 gap-4"> {/* structural layout belongs in the page */}
+      ...
+    </div>
+  );
+}
+```
 
 ---
 
@@ -590,3 +683,19 @@ When using `xstate`:
 * Multiple sources of truth for the same data
 * Large `useEffect` blocks that should be a handler or a small helper
 * Multiple reducers/machines fighting over the same page state
+
+## 12. No Unsolicited UI Copy
+
+Do not add explanatory hint text, status captions, or helper descriptions next to a UI element unless specifically asked for. A control should be self-evident from its own label or icon; don't pair it with a sentence describing what it does or what state it's in.
+
+```tsx
+// WRONG: hint text nobody asked for
+<p>Active diet: {activeDiet.name} {activeDiet.finalizedAt ? "(finalized)" : "(not finalized)"}</p>
+<Button onClick={finalizeDiet}>Finalize Diet</Button>
+
+// CORRECT: the control speaks for itself
+<Switch checked={isActive} onChange={handleEventToggle} />
+```
+
+## Rationale
+The results + a pool that you map from their total errors and actually in

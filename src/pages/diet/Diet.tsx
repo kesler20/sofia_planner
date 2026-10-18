@@ -1,72 +1,26 @@
+import { SelectedMealsMenu } from "./components/SelectedMealsMenu";
+import { CheatMealForm } from "./components/CheatMealForm";
+import type { CheatMealInput } from "./cheatMealsData";
+import { PlanningCard as Card, PlanningHeading, PlanningToolbarButton } from "../../components/planning/PlanningComponents";
+import LoadingAnimation from "../../components/LoadingAnimation";
+import { formatNutrient, sumKnown } from "./dietPlanning";
 import * as React from "react";
-import CustomModal from "../../components/modal/CustomModal";
+import { z } from "zod";
+import { readDietResource } from "./dietAnalyticsData";
+import { loadPlanningMeals, saveDietNote, saveCheatMeal, mergeCheatMeals } from "./cheatMealsData";
+import { MealPicker } from "./components/MealPicker";
+import { MealRecipe } from "./components/MealRecipe";
+import { appendMeals, matchesMeal, planCost } from "./dietPlanning";
 import BasicModal from "../../components/modal/BasicModal";
-import { MenuItem, Select } from "@mui/material";
-import { DietType, MealType, WEEKDAYS, WeekdayType, WeekPlanType } from "../../types";
-import { IoIosAdd, IoIosRemove } from "react-icons/io";
-import { FaArrowUpRightFromSquare } from "react-icons/fa6";
-import {
-  MdCalendarMonth,
-  MdContentCopy,
-  MdContentPaste,
-} from "react-icons/md";
-import { Table } from "../../components/table/Table";
-import MainButton from "../../components/button/MainButton";
+import { MenuItem, Select, Popover } from "@mui/material";
+import { DietType, DietSchema, MealType, WEEKDAYS, WeekdayType, WeekPlanType } from "../../types";
+import { FaTrashAlt } from "react-icons/fa";
 import IOSSwitch from "../../components/switch/IOSSwitch";
-import { useCachedValue, useStoredValue } from "../../utils";
+import { useCachedValue, compareAndSwapResourceInDb, readResourceSnapshot } from "../../utils";
 import WeekBoard, { type DayTotals } from "./WeekBoard";
 import toastFactory, {
   MessageSeverity,
 } from "../../components/notification/ToastMessages";
-
-export function Card(props: {
-  className?: string;
-  children?: React.ReactNode;
-  onClick?: () => void;
-  style?: any;
-}) {
-  return (
-    <div
-      style={props.style}
-      onClick={props.onClick}
-      className={`
-    border border-gray-200 rounded-2xl shadow-md
-    px-4
-    w-full
-    ${props.className}`}
-    >
-      {props.children}
-    </div>
-  );
-}
-
-export function CardTitle(props: { title: string; onClick?: () => void }) {
-  return (
-    <div className="flex w-auto md:w-full justify-start items-center text-gray-500">
-      <div
-        className={`
-              flex justify-center items-center
-              w-[38px] h-[38px]
-              border border-gray-900
-              rounded-full text-gray-900
-              cursor-pointer
-              ml-2 md:mr-6`}
-      >
-        <IoIosAdd size={20} onClick={props.onClick} />
-      </div>
-      <p className="hidden md:block">{props.title}</p>
-    </div>
-  );
-}
-
-export function CardSectionDivider(props: { title: string }) {
-  return (
-    <>
-      <h2 className="font-bold text-gray-600 mt-4">{props.title}</h2>
-      <div className="w-full border"></div>
-    </>
-  );
-}
 
 const emptyWeekPlan: DietType["meals"] = {
   Monday: [],
@@ -82,64 +36,25 @@ const defaultDiets: DietType[] = [
   { name: "Default", active: true, finalizedAt: null, meals: emptyWeekPlan },
 ];
 
-type DietData = { calories: number; protein: number; cost: number; tasteScore: number };
+type DietData = { calories: number | null; protein: number | null; cost: number | null; tasteScore: number | null };
 
 const getFoodQuantity = (food: MealType["foods"][number]) => food.quantity ?? 1;
 
-function SelectedMealsMenu(props: {
-  selectedMeals: MealType[];
-  onEventCopyMeals: () => void;
-  onEventSpreadMeals: () => void;
-  onEventClose: () => void;
-}) {
-  return (
-    <div className="fixed top-1/2 left-1/2 z-50 w-[calc(100vw-2rem)] max-w-[360px] -translate-x-1/2 -translate-y-1/2 bg-white/30 backdrop-blur-md border border-gray-200 rounded-2xl shadow-md px-5 sm:px-8 py-6 flex flex-col items-center">
-      <div className="flex w-full items-center justify-between">
-        <h2 className="text-xl font-bold mb-4 text-gray-800 font-serif">
-          Selected Meals
-        </h2>
-        <button
-          className="w-8 h-8 flex items-center mb-4 justify-center rounded-full bg-red-400 hover:bg-red-500 text-white text-xl font-bold shadow transition"
-          title="Close"
-          onClick={props.onEventClose}
-        >
-          <span>x</span>
-        </button>
-      </div>
-      <ul className="list-disc pl-6 mb-6 w-full">
-        {props.selectedMeals.map((meal) => (
-          <li key={meal.name} className="text-gray-700 text-lg font-semibold">
-            {meal.name}
-          </li>
-        ))}
-      </ul>
-      <div className="flex gap-6 mt-2">
-        <button
-          className="w-12 h-12 flex items-center justify-center rounded-full bg-green-500 hover:bg-green-600 text-white text-xl font-bold shadow transition"
-          title="Copy"
-          onClick={props.onEventCopyMeals}
-        >
-          <MdContentCopy size={22} />
-        </button>
-        <button
-          className="w-12 h-12 flex items-center justify-center rounded-full bg-green-600 hover:bg-green-700 text-white text-xl font-bold shadow transition"
-          title="Spread"
-          onClick={props.onEventSpreadMeals}
-        >
-          <MdCalendarMonth size={22} />
-        </button>
-      </div>
-    </div>
-  );
-}
+const emptyCheatMeal = (): CheatMealInput => ({ name: "", calories: null, protein: null, carbs: null, fat: null, cost: null, amount: null, vendor: null });
 
 export default function Diet() {
   const email = localStorage.getItem("global/email") || "guest";
-  const [diets, setDiets] = useStoredValue<DietType[]>(
-    email,
-    defaultDiets,
-    "diets"
-  );
+  const [diets, setDiets] = React.useState<DietType[]>(defaultDiets);
+  const [dietsLoading, setDietsLoading] = React.useState(true);
+  const [dietsReady, setDietsReady] = React.useState(false);
+  const [dietSaving, setDietSaving] = React.useState(false);
+  React.useEffect(() => {
+    let active = true;
+    void readDietResource(email, "diets", z.array(DietSchema)).then(value => {
+      if (active) { setDiets(value?.length ? value : structuredClone(defaultDiets)); setDietsReady(true); }
+    }).catch(() => { if (active) toastFactory("Unable to load diets. Refresh before editing.", MessageSeverity.ERROR); }).finally(() => { if (active) setDietsLoading(false); });
+    return () => { active = false; };
+  }, [email]);
   const activeDiet = diets.find((d) => d.active) ?? diets[0];
 
   // Browsing the dropdown only changes which diet is displayed. The activate
@@ -161,21 +76,35 @@ export default function Diet() {
     "Saturday",
   ];
   const [selectMealModalOpen, setSelectMealModalOpen] = React.useState(false);
+  const [mealQuery, setMealQuery] = React.useState("");
+  const [recipeMeal, setRecipeMeal] = React.useState<MealType | null>(null);
+  const [tasteDraft, setTasteDraft] = React.useState("");
+  const [tasteMessage, setTasteMessage] = React.useState("");
+  const [workspace, setWorkspace] = React.useState<"plan" | "cheat">("plan");
+  const [cheatInput, setCheatInput] = React.useState<CheatMealInput>(emptyCheatMeal);
+  const [cheatSaving, setCheatSaving] = React.useState(false);
+  const [cheatMessage, setCheatMessage] = React.useState("");
+  const [newDietDialog, setNewDietDialog] = React.useState(false);
   const [newDietName, setNewDietName] = React.useState("");
+  const [noteEditor, setNoteEditor] = React.useState<{ diet: string; original: string; draft: string } | null>(null);
+  const [noteAnchor, setNoteAnchor] = React.useState<HTMLElement | null>(null);
+  const [noteSaving, setNoteSaving] = React.useState(false);
+  const [noteMessage, setNoteMessage] = React.useState("");
   const today = new Date();
   const todayWeekday = jsDayToWeekday[today.getDay()];
   const [currentDay, setCurrentDay] = React.useState<WeekdayType>(todayWeekday);
-  const [mealsFromDb, , mealsAreLoading] = useStoredValue<MealType[]>(
-    email,
-    [],
-    "meals"
-  );
-  const [currentDayTotal, setCurrentDayTotal] = React.useState<DietData>({
-    calories: 0,
-    protein: 0,
-    cost: 0,
-    tasteScore: 0,
-  });
+  const [mealsFromDb, setMealsFromDb] = React.useState<MealType[]>([]);
+  const [mealsAreLoading, setMealsAreLoading] = React.useState(true);
+  React.useEffect(() => {
+    let active = true;
+    void loadPlanningMeals(email).then(meals => {
+      if (active) setMealsFromDb(meals ?? []);
+    }).catch(error => {
+      console.log("Error loading meal catalogue", error instanceof Error ? error.name : "UnknownError");
+      if (active) toastFactory("Unable to load meals", MessageSeverity.ERROR);
+    }).finally(() => { if (active) setMealsAreLoading(false); });
+    return () => { active = false; };
+  }, [email]);
   const [weeklyAverage, setWeeklyAverage] = React.useState<DietData>({
     calories: 0,
     protein: 0,
@@ -183,27 +112,13 @@ export default function Diet() {
     tasteScore: 0,
   });
   const [selectedMeals, setSelectedMeals] = React.useState<MealType[]>([]);
-  const [dietView, setDietView] = useCachedValue<"table" | "board">(
-    email,
-    "table",
-    "dietView"
-  );
   // Board edits are a draft until saved, unlike the table which persists on change. It
   // is keyed by diet name so switching diets cannot apply one diet's draft to another.
   const [boardDraft, setBoardDraft] = useCachedValue<{
     dietName: string;
     meals: WeekPlanType;
   } | null>(email, null, "dietBoardDraft");
-  const [pendingViewSwitch, setPendingViewSwitch] = React.useState(false);
-  const [isBoardWidth, setIsBoardWidth] = React.useState(
-    typeof window !== "undefined" ? window.innerWidth >= 768 : true
-  );
-
-  React.useEffect(() => {
-    const handleResize = () => setIsBoardWidth(window.innerWidth >= 768);
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
+  const [pendingClearDiet, setPendingClearDiet] = React.useState<string | null>(null);
   const [dayTotals, setDayTotals] = React.useState<Record<WeekdayType, DayTotals>>(
     () =>
       WEEKDAYS.reduce(
@@ -225,16 +140,26 @@ export default function Diet() {
     }
   }
 
-  const updateDietByName = (
-    dietName: string,
-    updater: (diet: DietType) => DietType
-  ) => {
-    setDiets((prev) => prev.map((d) => (d.name === dietName ? updater(d) : d)));
+  const handleEventPersistDiets = async (updater: (current: DietType[]) => DietType[], expectedMeals?: { name: string; meals: WeekPlanType }) => {
+    if (!dietsReady || dietSaving) return false;
+    setDietSaving(true);
+    try {
+      return await navigator.locks.request(`sofia-diets-${email}`, async () => {
+        const raw = await readResourceSnapshot(email, "diets");
+        const stored = raw ? z.array(DietSchema).parse(raw.key) : null;
+        const current = stored?.length ? stored : structuredClone(defaultDiets);
+        if (expectedMeals && JSON.stringify(current.find(diet => diet.name === expectedMeals.name)?.meals) !== JSON.stringify(expectedMeals.meals)) throw new Error("This diet changed. Refresh before replacing its meals.");
+        const next = updater(current);
+        await compareAndSwapResourceInDb(email, "diets", raw, { ...raw, key: next });
+        setDiets(next);
+        return true;
+      });
+    } catch (error) { toastFactory(error instanceof Error ? error.message : "Unable to save diet.", MessageSeverity.ERROR); return false; }
+    finally { setDietSaving(false); }
   };
-
-  const updateViewedDiet = (updater: (diet: DietType) => DietType) => {
-    updateDietByName(viewedDiet.name, updater);
-  };
+  const updateDietByName = (dietName: string, updater: (diet: DietType) => DietType, expectedMeals?: WeekPlanType) =>
+    handleEventPersistDiets(current => current.map(diet => diet.name === dietName ? updater(diet) : diet), expectedMeals ? { name: dietName, meals: expectedMeals } : undefined);
+  const updateViewedDiet = (updater: (diet: DietType) => DietType) => updateDietByName(viewedDiet.name, updater, viewedDiet.meals);
 
   // What the board shows: the unsaved draft when there is one for this diet, else the
   // saved plan. All totals read from here so the columns update as cards are dragged.
@@ -245,50 +170,61 @@ export default function Diet() {
   const hasUnsavedBoardChanges =
     boardDraft !== null && boardDraft.dietName === viewedDiet.name;
 
-  const activeView = dietView === "board" && isBoardWidth ? "board" : "table";
+  const hasMealsToClear = WEEKDAYS.some(day =>
+    viewedDiet.meals[day].length > 0 || boardMeals[day].length > 0
+  );
+
+  // ------------------------------------------------------ Diet
+  const handleEventClearDiet = async () => {
+    if (pendingClearDiet === null) return;
+    const saved = await updateDietByName(pendingClearDiet, diet => ({
+      ...diet,
+      meals: structuredClone(emptyWeekPlan),
+    }), diets.find(diet => diet.name === pendingClearDiet)?.meals);
+    if (!saved) return;
+    setBoardDraft(previous => previous?.dietName === pendingClearDiet ? null : previous);
+    setSelectedMeals([]);
+    setPendingClearDiet(null);
+    toastFactory("Diet cleared", MessageSeverity.SUCCESS);
+  };
+
 
   const handleEventBoardChange = (meals: WeekPlanType) => {
+    if (dietSaving) return;
     setBoardDraft({ dietName: viewedDiet.name, meals });
   };
 
-  const handleEventSaveBoard = () => {
-    if (!hasUnsavedBoardChanges) return;
+  const handleEventSaveBoard = async () => {
+    if (!hasUnsavedBoardChanges) return true;
     const meals = boardMeals;
-    updateViewedDiet((diet) => ({ ...diet, meals }));
+    const saved = await updateViewedDiet((diet) => ({ ...diet, meals }));
+    if (!saved) return false;
     setBoardDraft(null);
     toastFactory("Week saved", MessageSeverity.SUCCESS);
+    return true;
   };
 
   const handleEventDiscardBoard = () => {
     setBoardDraft(null);
   };
 
-  // Leaving the board with unsaved drags would show a table that disagrees with what was
-  // just arranged, so ask before switching rather than silently saving or discarding.
-  const handleEventRequestView = (nextView: "table" | "board") => {
-    if (nextView === "table" && hasUnsavedBoardChanges) {
-      setPendingViewSwitch(true);
-      return;
-    }
-    setDietView(nextView);
-  };
-
-  const handleEventRemoveMealFromDay = (day: WeekdayType, mealName: string) => {
+  const handleEventRemoveMealFromDay = (day: WeekdayType, index: number) => {
+    setSelectedMeals(selected => selected.filter(meal => meal !== boardMeals[day][index]));
     handleEventBoardChange({
       ...boardMeals,
-      [day]: boardMeals[day].filter((meal) => meal.name !== mealName),
+      [day]: boardMeals[day].filter((_, mealIndex) => mealIndex !== index),
     });
   };
 
-  const averageTasteScore = (meals: MealType[]) =>
-    meals.length
-      ? meals.reduce((sum, m) => sum + m.tasteScore, 0) / meals.length
-      : 0;
+  const averageTasteScore = (meals: MealType[]) => {
+    const rated = meals.filter(meal => meal.tasteScore !== null);
+    return rated.length ? rated.reduce((sum, meal) => sum + (meal.tasteScore ?? 0), 0) / rated.length : null;
+  };
 
   const calculateTotal = React.useCallback(() => {
     // One pass over the week produces every per-day total, the current day's total and
     // the weekly average, so the board columns and the two summary cards cannot drift.
-    const weekTotal = { calories: 0, protein: 0, cost: 0 };
+    const weekTotal: Pick<DietData, "calories" | "protein" | "cost"> = { calories: 0, protein: 0, cost: 0 };
     let allMeals: MealType[] = [];
     const weekDays = Object.keys(boardMeals) as WeekdayType[];
     const totalsByDay = {} as Record<WeekdayType, DayTotals>;
@@ -296,29 +232,28 @@ export default function Diet() {
     weekDays.forEach((day) => {
       const meals = boardMeals[day];
       allMeals = allMeals.concat(meals);
-      const dailyTotal = { calories: 0, protein: 0, cost: 0 };
+      const dailyTotal: Pick<DietData, "calories" | "protein" | "cost"> = { calories: 0, protein: 0, cost: 0 };
       meals.forEach((meal: MealType) => {
         meal.foods.forEach((food) => {
-          dailyTotal.calories += food.calories * getFoodQuantity(food);
-          dailyTotal.protein += food.protein * getFoodQuantity(food);
-          dailyTotal.cost += (food.cost ?? 0) * getFoodQuantity(food);
+          dailyTotal.calories = dailyTotal.calories === null || food.calories === null ? null : dailyTotal.calories + food.calories * getFoodQuantity(food);
+          dailyTotal.protein = dailyTotal.protein === null || food.protein === null ? null : dailyTotal.protein + food.protein * getFoodQuantity(food);
+          dailyTotal.cost = dailyTotal.cost === null || food.cost === null ? null : dailyTotal.cost + food.cost * getFoodQuantity(food);
         });
       });
       totalsByDay[day] = {
         ...dailyTotal,
         tasteScore: averageTasteScore(meals),
       };
-      weekTotal.calories += dailyTotal.calories;
-      weekTotal.protein += dailyTotal.protein;
-      weekTotal.cost += dailyTotal.cost;
+      weekTotal.calories = sumKnown([weekTotal.calories, dailyTotal.calories]);
+      weekTotal.protein = sumKnown([weekTotal.protein, dailyTotal.protein]);
+      weekTotal.cost = weekTotal.cost === null || dailyTotal.cost === null ? null : weekTotal.cost + dailyTotal.cost;
     });
 
     setDayTotals(totalsByDay);
-    setCurrentDayTotal(totalsByDay[currentDay]);
     setWeeklyAverage({
-      calories: weekTotal.calories / weekDays.length,
-      protein: weekTotal.protein / weekDays.length,
-      cost: weekTotal.cost / weekDays.length,
+      calories: weekTotal.calories === null ? null : weekTotal.calories / weekDays.length,
+      protein: weekTotal.protein === null ? null : weekTotal.protein / weekDays.length,
+      cost: weekTotal.cost === null ? null : weekTotal.cost / weekDays.length,
       tasteScore: averageTasteScore(allMeals),
     });
   }, [boardMeals, currentDay]);
@@ -327,125 +262,47 @@ export default function Diet() {
     calculateTotal();
   }, [calculateTotal]);
 
-  React.useEffect(() => {
+  const handleEventDay = (day: WeekdayType) => {
+    setCurrentDay(day);
     setSelectedMeals([]);
-  }, [currentDay]);
-
-  const copySelectedMealsToClipboard = () => {
-    if (!selectedMeals.length) {
-      toastFactory("Select a meal before copying.", MessageSeverity.WARNING);
-      return;
-    }
-    navigator.clipboard.writeText(JSON.stringify(selectedMeals));
-    toastFactory("Meals copied to clipboard", MessageSeverity.SUCCESS);
   };
 
-  const pasteSelectedMealsFromClipboard = async () => {
-    const text = await navigator.clipboard.readText();
-    let copiedMeals: MealType[] = [];
+  const handleEventSelectBoardMeal = (day: WeekdayType, meal: MealType) => {
+    setCurrentDay(day);
+    setSelectedMeals([meal]);
+  };
+
+  const handleEventRecipe = (meal: MealType) => {
+    setRecipeMeal(meal);
+    setTasteDraft(meal.tasteScore?.toString() ?? "");
+    setTasteMessage("");
+  };
+
+  const handleEventPlanChange = handleEventBoardChange;
+
+  const copySelectedMealsToClipboard = async (meals = selectedMeals) => {
+    if (!meals.length) { toastFactory("Select a meal before copying.", MessageSeverity.WARNING); return; }
     try {
-      copiedMeals = JSON.parse(text) as MealType[];
-    } catch {
-      toastFactory("Invalid meals in clipboard.", MessageSeverity.ERROR);
-      return;
+      await navigator.clipboard.writeText(JSON.stringify(meals));
+      toastFactory("Meals copied to clipboard", MessageSeverity.SUCCESS);
+    } catch (error) {
+      console.log("Error copying meals", error);
+      toastFactory("Clipboard access failed. Allow clipboard access and try again.", MessageSeverity.ERROR);
     }
-
-    if (!Array.isArray(copiedMeals) || copiedMeals.length === 0) {
-      toastFactory("No meals to paste.", MessageSeverity.WARNING);
-      return;
-    }
-
-    updateViewedDiet((diet) => ({
-      ...diet,
-      meals: {
-        ...diet.meals,
-        [currentDay]: [
-          ...diet.meals[currentDay],
-          ...copiedMeals.filter(
-            (meal) => !diet.meals[currentDay].some((item) => item.name === meal.name),
-          ),
-        ] as MealType[],
-      },
-    }));
-    toastFactory(`Pasted ${copiedMeals.length} meals`, MessageSeverity.INFO);
   };
 
   const addMealToDiet = (meal: MealType) => {
-    // On the board an add is part of the unsaved draft, matching every other board edit.
-    if (activeView === "board") {
-      if (boardMeals[currentDay].some((m) => m.name === meal.name)) {
-        toastFactory(
-          `${currentDay} already has ${meal.name}`,
-          MessageSeverity.WARNING
-        );
-        return;
-      }
-      handleEventBoardChange({
-        ...boardMeals,
-        [currentDay]: [...boardMeals[currentDay], meal],
-      });
-      return;
-    }
-
-    updateViewedDiet((diet) => {
-      if (diet.meals[currentDay].some((m) => m.name === meal.name)) {
-        return diet;
-      }
-      return {
-        ...diet,
-        meals: {
-          ...diet.meals,
-          [currentDay]: [...diet.meals[currentDay], meal],
-        },
-      };
-    });
+    handleEventPlanChange(appendMeals(boardMeals, [currentDay], [meal]));
   };
 
-  const removeMealFromDiet = (meal: MealType) => {
-    updateViewedDiet((diet) => ({
-      ...diet,
-      meals: {
-        ...diet.meals,
-        [currentDay]: diet.meals[currentDay].filter((m) => m.name !== meal.name),
-      },
-    }));
-  };
-
-  const toggleMealSelection = (meal: MealType) => {
-    setSelectedMeals((prev) =>
-      prev.some((m) => m.name === meal.name)
-        ? prev.filter((m) => m.name !== meal.name)
-        : [...prev, meal]
-    );
-  };
-
-  const spreadSelectedMealsToAllDays = () => {
-    if (!selectedMeals.length) {
-      toastFactory("Select meals before spreading.", MessageSeverity.WARNING);
-      return;
-    }
-
-    updateViewedDiet((diet) => {
-      const nextMeals = { ...diet.meals };
-      (Object.keys(nextMeals) as WeekdayType[]).forEach((day) => {
-        nextMeals[day] = [
-          ...nextMeals[day],
-          ...selectedMeals.filter(
-            (meal) => !nextMeals[day].some((item) => item.name === meal.name),
-          ),
-        ];
-      });
-
-      return { ...diet, meals: nextMeals };
-    });
-    toastFactory(
-      `Spread ${selectedMeals.length} meals to all days`,
-      MessageSeverity.INFO,
-    );
+  const spreadSelectedMealsToAllDays = (meals = selectedMeals) => {
+    if (!meals.length) { toastFactory("Select meals before spreading.", MessageSeverity.WARNING); return; }
+    handleEventPlanChange(appendMeals(boardMeals, WEEKDAYS, meals));
+    toastFactory(`Spread ${meals.length} meals across the week`, MessageSeverity.INFO);
   };
 
   const activateAndFinalizeDiet = (dietName: string) => {
-    setDiets((prev) =>
+    void handleEventPersistDiets((prev) =>
       prev.map((d) =>
         d.name === dietName
           ? { ...d, active: true, finalizedAt: new Date().toISOString() }
@@ -454,8 +311,43 @@ export default function Diet() {
     );
   };
 
+  const handleEventSaveCheatMeal = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (cheatSaving) return;
+    setCheatSaving(true); setCheatMessage("");
+    try {
+      const saved = await saveCheatMeal(email, cheatInput, 0);
+      setMealsFromDb(previous => mergeCheatMeals(previous, [saved]));
+      setCheatInput(emptyCheatMeal()); setWorkspace("plan");
+      toastFactory("Cheat meal saved and available in Add meals", MessageSeverity.SUCCESS);
+    } catch (error) { setCheatMessage(error instanceof Error ? error.message : "Unable to save meal."); }
+    finally { setCheatSaving(false); }
+  };
+
+  const handleEventOpenNote = (event: React.MouseEvent<HTMLButtonElement>) => {
+    setNoteAnchor(event.currentTarget);
+    setNoteEditor({ diet: viewedDiet.name, original: viewedDiet.note ?? "", draft: viewedDiet.note ?? "" });
+    setNoteMessage("");
+  };
+  const handleEventCloseNote = () => {
+    if (!noteSaving) { setNoteEditor(null); setNoteAnchor(null); }
+  };
+
+  const handleEventSaveNote = async () => {
+    if (!noteEditor) return;
+    setNoteSaving(true);
+    try {
+      const next = await saveDietNote(email, noteEditor.diet, noteEditor.draft, noteEditor.original);
+      setDiets(next);
+      setNoteEditor(null); setNoteAnchor(null); setNoteMessage("");
+      toastFactory("Note saved", MessageSeverity.SUCCESS);
+    } catch (error) { setNoteMessage(error instanceof Error ? error.message : "Unable to save note."); }
+    finally { setNoteSaving(false); }
+  };
+
   const handleEventSelectDiet = (dietName: string) => {
     setPreviewedDietName(dietName);
+    setSelectedMeals([]);
   };
 
   const handleEventToggleActivateDiet = (checked: boolean) => {
@@ -464,27 +356,21 @@ export default function Diet() {
       return;
     }
 
-    setDiets((prev) =>
+    void handleEventPersistDiets((prev) =>
       prev.map((diet) =>
         diet.name !== viewedDiet.name ? diet : { ...diet, active: false }
       )
     );
   };
 
-  const createDiet = () => {
-    if (!newDietName || diets.some((d) => d.name === newDietName)) {
-      toastFactory(
-        "Give the new diet a unique name.",
-        MessageSeverity.WARNING
-      );
-      return;
-    }
-    setDiets((prev) => [
-      ...prev.map((d) => ({ ...d, active: false })),
-      { name: newDietName, active: true, finalizedAt: null, meals: emptyWeekPlan },
-    ]);
-    setPreviewedDietName(newDietName);
-    setNewDietName("");
+  const createDiet = async () => {
+    const name = newDietName.trim();
+    if (!name) { toastFactory("Give the new diet a unique name.", MessageSeverity.WARNING); return; }
+    const saved = await handleEventPersistDiets(current => {
+      if (current.some(diet => diet.name === name)) throw new Error("Give the new diet a unique name.");
+      return [...current.map(diet => ({ ...diet, active: false })), { name, active: true, finalizedAt: null, meals: structuredClone(emptyWeekPlan) }];
+    });
+    if (saved) { setPreviewedDietName(name); setNewDietName(""); setNewDietDialog(false); }
   };
 
   // Map WeekdayType to JS day index
@@ -498,14 +384,14 @@ export default function Diet() {
     Saturday: 6,
   };
 
-  const openMyFitnessPal = () => {
+  const handleEventOpenMyFitnessPal = (selectedDay: WeekdayType) => {
     // Today's date
     const now = new Date();
     // Find the offset between selected day and today
     const todayIdx = now.getDay();
-    const selectedIdx = weekdayToJsDay[currentDay];
+    const selectedIdx = weekdayToJsDay[selectedDay];
     // Calculate the date for the selected day in the current week (past or future)
-    const diff = selectedIdx - todayIdx;
+    const diff = ((selectedIdx + 6) % 7) - ((todayIdx + 6) % 7);
     const targetDate = new Date(now);
     targetDate.setDate(now.getDate() + diff);
     const year = targetDate.getFullYear();
@@ -518,403 +404,104 @@ export default function Diet() {
     );
   };
 
+  if (dietsLoading || mealsAreLoading) return <LoadingAnimation />;
+  if (!dietsReady) return <p role="alert" className="p-6 text-red-700">Unable to load diets. Refresh before editing.</p>;
   return (
-    <div className="w-full flex flex-col items-center justify-start min-h-screen bg-white">
+    <div className="w-full min-w-0 px-4 md:px-64 flex flex-col items-center justify-start min-h-screen bg-white">
       {/* Selected meals menu */}
-      {activeView === "table" && selectedMeals.length > 0 && (
+      {workspace === "plan" && selectedMeals.length > 0 && (
         <SelectedMealsMenu
           selectedMeals={selectedMeals}
-          onEventCopyMeals={copySelectedMealsToClipboard}
-          onEventSpreadMeals={spreadSelectedMealsToAllDays}
+          onEventCopyMeals={() => { void copySelectedMealsToClipboard(); }}
+          onEventSpreadMeals={() => spreadSelectedMealsToAllDays()}
           onEventClose={() => setSelectedMeals([])}
         />
       )}
 
-      {/* Diet selector */}
-      <Card className="w-[calc(100%-1rem)] md:w-1/2 max-w-[900px] mt-2 md:mt-4 bg-white p-2 md:p-4 py-4 md:py-6">
-        <CardSectionDivider title="Select Diet" />
-        <div className="w-full flex flex-col md:flex-row justify-between items-stretch md:items-center gap-3 py-4 md:py-6">
-          <div className="flex items-center gap-3">
-            <div className="min-w-0 flex-1">
-              <Select
-                className="w-full"
-                value={viewedDiet.name}
-                onChange={(event: any) => handleEventSelectDiet(event.target.value)}
-              >
-                {diets.map((diet, index) => (
-                  <MenuItem key={index} value={diet.name}>
-                    {diet.name}
-                    {diet.active ? " (active)" : ""}
-                  </MenuItem>
-                ))}
-              </Select>
-            </div>
-            <div className="flex shrink-0 flex-col items-center gap-1">
-              <p className="text-[10px] text-gray-500">Active</p>
-              <IOSSwitch
-                checked={viewedDiet.active}
-                onChange={(event) =>
-                  handleEventToggleActivateDiet(event.target.checked)
-                }
-              />
-            </div>
+      {/* Finance-style planning toolbar */}
+      <div role="toolbar" aria-label="Diet actions" className="flex w-full flex-wrap items-center justify-center gap-y-3 py-4">
+        <Select inputProps={{ "aria-label": "Diet" }} className="min-w-[180px]" value={viewedDiet.name} onChange={event => handleEventSelectDiet(event.target.value)}>
+          {diets.map(diet => <MenuItem key={diet.name} value={diet.name}>{diet.name}{diet.active ? " (active)" : ""}</MenuItem>)}
+        </Select>
+        <label className="mx-3 flex items-center gap-2 text-sm text-gray-500"><IOSSwitch checked={viewedDiet.active} disabled={dietSaving} inputProps={{ "aria-label": "Active diet" }} onChange={event => handleEventToggleActivateDiet(event.target.checked)} />Active</label>
+        <PlanningToolbarButton label="New diet" disabled={dietSaving} onEventClick={() => { setNewDietName(""); setNewDietDialog(true); }}><span aria-hidden="true">➕</span>New diet</PlanningToolbarButton>
+        <PlanningToolbarButton label="Clear diet" disabled={!hasMealsToClear || dietSaving} onEventClick={() => setPendingClearDiet(viewedDiet.name)}><FaTrashAlt aria-hidden="true" />Clear diet</PlanningToolbarButton>
+        <PlanningToolbarButton label={workspace === "plan" ? "Create cheat meal" : "Back to Plan Diet"} disabled={cheatSaving} pressed={workspace === "cheat"} onEventClick={() => setWorkspace(previous => previous === "plan" ? "cheat" : "plan")}><span aria-hidden="true">{workspace === "plan" ? "🍔" : "📅"}</span>{workspace === "plan" ? "Create cheat meal" : "Back to Plan Diet"}</PlanningToolbarButton>
+      </div>
+
+      <BasicModal open={newDietDialog} handleClose={() => { if (!dietSaving) setNewDietDialog(false); }} customModal={<form role="dialog" aria-modal="true" aria-labelledby="new-diet-title" className="w-[calc(100vw-2rem)] max-w-md rounded-2xl border border-gray-200 bg-white p-6 shadow-md" onSubmit={event => { event.preventDefault(); void createDiet(); }}>
+        <h2 id="new-diet-title" className="mb-5 text-xl font-bold text-gray-800">New diet</h2>
+        <label htmlFor="new-diet-name" className="mb-2 block text-sm text-gray-600">Diet name</label><input id="new-diet-name" autoFocus required value={newDietName} onChange={event => setNewDietName(event.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-800 focus:outline-blue-400" />
+        <div className="mt-5 flex justify-end gap-3"><button type="button" disabled={dietSaving} onClick={() => setNewDietDialog(false)} className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600">Cancel</button><button type="submit" disabled={dietSaving} className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow hover:bg-gray-100 disabled:opacity-50">{dietSaving ? "Creating…" : "Create diet"}</button></div>
+      </form>} />
+
+      {/* Selected workspace retains its drafts in this page. */}
+      {workspace === "cheat" ? <CheatMealForm input={cheatInput} saving={cheatSaving} message={cheatMessage} onEventInput={setCheatInput} onEventSave={handleEventSaveCheatMeal} /> : <Card className="w-full min-w-0 mt-5 mb-8 bg-white p-4 md:p-6">
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <button type="button" aria-label="Save diet" title={dietSaving ? "Saving diet" : hasUnsavedBoardChanges ? "Save diet" : "Diet saved"} disabled={!hasUnsavedBoardChanges || dietSaving} className="modal__card__btn--create shrink-0 text-sm font-semibold disabled:cursor-default disabled:opacity-40" onClick={() => { void handleEventSaveBoard(); }}>{dietSaving ? "Saving…" : "Save diet"}</button>
+            <button type="button" aria-label="Diet notes" title="Diet notes" aria-expanded={noteEditor !== null} aria-controls={noteEditor ? "diet-note-editor" : undefined} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-gray-800 text-gray-800 hover:bg-gray-100" onClick={handleEventOpenNote}><span aria-hidden="true" className="text-2xl">📝</span></button>
+            <div className="flex items-center gap-2 md:gap-3"><PlanningHeading text="📅 Plan Diet" /></div>
           </div>
-          <div className="flex items-center gap-2">
-            <input
-              className="border-b text-center w-full outline-none"
-              placeholder="New diet name"
-              value={newDietName}
-              onChange={(e) => setNewDietName(e.target.value)}
-            />
-            <MainButton
-              text="Create New Diet"
-              onSubmit={createDiet}
-              iconOnlyOnMobile
-              className="!mt-0 !mb-0 shrink-0"
-            />
-          </div>
+          <div className="ml-auto flex items-center gap-3 rounded-xl border border-gray-200 px-4 py-3 shadow-sm"><span className="text-xs font-bold text-gray-400 md:text-sm">Weekly cost</span><strong className="text-xl text-gray-500 md:text-2xl">{planCost(boardMeals) === null ? "Unknown" : `£${planCost(boardMeals)!.toFixed(2)}`}</strong></div>
         </div>
-      </Card>
-
-      {/* Main Card */}
-      <Card
-        className={`w-[calc(100%-1rem)] mt-3 md:mt-4 bg-white p-2 md:p-4 py-4 md:py-6 ${
-          activeView === "board"
-            ? "md:w-[96%] max-w-[1600px]"
-            : "md:w-1/2 max-w-[900px]"
-        }`}
-      >
-        {/* Card Header with the button and the Dropdown */}
-        <div className="w-full flex flex-nowrap justify-between md:justify-evenly items-center gap-2">
-          <CardTitle
-            title={`Add Meals for ${currentDay}`}
-            onClick={() => setSelectMealModalOpen(true)}
-          />
-
-          <button
-            type="button"
-            className="hidden md:inline-flex items-center gap-1 whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold bg-blue-500 text-white hover:bg-blue-600 shadow transition md:mr-auto"
-            onClick={openMyFitnessPal}
-            title="Open MyFitnessPal food diary"
-          >
-            <FaArrowUpRightFromSquare size={12} />
-            <span>MyFitnessPal</span>
-          </button>
-
-          {/* Top select menu */}
-          <div className="ml-auto flex items-center gap-2">
-            <Select
-              labelId="demo-simple-select-label"
-              id="demo-simple-select"
-              className="h-10 min-w-[128px]"
-              value={currentDay}
-              onChange={(event: any) => {
-                setCurrentDay(event.target.value as WeekdayType);
-              }}
-            >
-              {Object.keys(viewedDiet.meals).map((day, index) => (
-                <MenuItem key={index} value={day}>
-                  {day}
-                </MenuItem>
-              ))}
-            </Select>
-
-            {/* The board is only offered from md up: seven columns cannot fit a phone. */}
-            <div className="hidden md:flex items-center rounded-lg border border-gray-300 shadow overflow-hidden">
-              {(["table", "board"] as const).map((view) => (
-                <button
-                  key={view}
-                  type="button"
-                  className={`px-3 h-10 text-xs font-semibold transition ${
-                    dietView === view
-                      ? "bg-blue-500 text-white"
-                      : "bg-white text-gray-700 hover:bg-gray-100"
-                  }`}
-                  title={view === "table" ? "Day table" : "Week board"}
-                  onClick={() => handleEventRequestView(view)}
-                >
-                  {view === "table" ? "Day" : "Week"}
-                </button>
-              ))}
-            </div>
-
-            {activeView === "table" && (
-              <button
-                type="button"
-                className="px-3 h-10 rounded-lg border border-gray-300 bg-white hover:bg-gray-100 text-gray-700 text-xs font-semibold shadow transition flex items-center gap-1"
-                title="Paste Meals"
-                onClick={pasteSelectedMealsFromClipboard}
-              >
-                <MdContentPaste size={16} />
-                <span className="hidden sm:inline">Paste</span>
-              </button>
-            )}
-          </div>
+        {hasUnsavedBoardChanges && <div className="mb-3 flex items-center justify-end gap-3 text-xs text-gray-500"><span role="status">Unsaved week</span><button type="button" disabled={dietSaving} className="underline hover:text-gray-800" onClick={handleEventDiscardBoard}>Discard changes</button></div>}
+        <div className={dietSaving ? "pointer-events-none opacity-60" : ""}>
+          <WeekBoard meals={boardMeals} dayTotals={dayTotals} currentDay={currentDay} todayWeekday={todayWeekday} quantityOf={getFoodQuantity} onSelectDay={handleEventDay} onAddMeal={day => { handleEventDay(day); setSelectMealModalOpen(true); }} onRemoveMeal={handleEventRemoveMealFromDay} onChange={handleEventBoardChange} onEventRecipe={handleEventRecipe} onEventSelectMeal={handleEventSelectBoardMeal} onEventOpenDiary={handleEventOpenMyFitnessPal} />
         </div>
-
-        {/* Card Body: the week board on md and up, otherwise the day table */}
-        {activeView === "board" ? (
-          <div className="w-full">
-            <CardSectionDivider title="Week" />
-            <div className="my-4 md:my-6">
-              <WeekBoard
-                meals={boardMeals}
-                dayTotals={dayTotals}
-                currentDay={currentDay}
-                todayWeekday={todayWeekday}
-                quantityOf={getFoodQuantity}
-                onSelectDay={setCurrentDay}
-                onAddMeal={(day) => {
-                  setCurrentDay(day);
-                  setSelectMealModalOpen(true);
-                }}
-                onRemoveMeal={handleEventRemoveMealFromDay}
-                onChange={handleEventBoardChange}
-              />
-            </div>
-            <div className="flex w-full items-center justify-end gap-3">
-              {hasUnsavedBoardChanges && (
-                <button
-                  type="button"
-                  className="px-3 h-10 rounded-lg border-[2px] border-gray-200 bg-red-300 hover:bg-red-200 text-gray-800 text-xs font-semibold shadow transition whitespace-nowrap"
-                  onClick={handleEventDiscardBoard}
-                >
-                  Discard changes
-                </button>
-              )}
-              <MainButton
-                text={hasUnsavedBoardChanges ? "Save Changes" : "Saved"}
-                onSubmit={handleEventSaveBoard}
-                className={`!mt-0 !mb-0 shrink-0 ${
-                  hasUnsavedBoardChanges ? "" : "opacity-50 pointer-events-none"
-                }`}
-              />
-            </div>
-          </div>
-        ) : null}
-
-        {/* Card Body with the selected meals */}
-        <div className={activeView === "board" ? "hidden" : "contents"}>
-        <CardSectionDivider title="Selected Meals" />
-        <div className="flex w-full items-center justify-between px-2 mt-2">
-          {selectedMeals.length > 0 && (
-            <button
-              type="button"
-              className="text-xs text-blue-500 underline"
-              onClick={() => setSelectedMeals([])}
-            >
-              Clear selection
-            </button>
-          )}
+        <div aria-label="Daily averages" className="mt-4 grid grid-cols-2 gap-4 rounded-xl border border-gray-200 p-4 text-sm font-bold text-gray-400 shadow-sm lg:grid-cols-4 md:text-xl">
+          <p className="flex flex-wrap items-center justify-center gap-2"><span aria-hidden="true">🔥</span>Calories <span className="text-gray-500">{formatNutrient(weeklyAverage.calories)} <span className="text-xs font-normal">kcal</span></span></p>
+          <p className="flex flex-wrap items-center justify-center gap-2"><span aria-hidden="true">💪</span>Protein <span className="text-gray-500">{formatNutrient(weeklyAverage.protein)} <span className="text-xs font-normal">g</span></span></p>
+          <p className="flex flex-wrap items-center justify-center gap-2"><span aria-hidden="true">💷</span>Cost <span className="text-gray-500">{weeklyAverage.cost === null ? "Unknown" : `£${weeklyAverage.cost.toFixed(2)}`}</span></p>
+          <p className="flex flex-wrap items-center justify-center gap-2"><span aria-hidden="true">⭐</span>Taste <span className="text-gray-500">{weeklyAverage.tasteScore === null ? "Unrated" : `${weeklyAverage.tasteScore.toFixed(1)}/10`}</span></p>
         </div>
-        <div className="w-full min-h-[220px] max-h-[400px] my-4 md:my-6 overflow-x-hidden overflow-y-scroll custom-scrollbar rounded-xl border border-gray-200">
-          <Table>
-            <tbody>
-              <tr>
-                <th className="hidden md:table-cell">Select</th>
-                <th>Meal</th>
-                <th className="hidden md:table-cell">Foods</th>
-                <th><span className="md:hidden">Kcal</span><span className="hidden md:inline">Calories (Kcal)</span></th>
-                <th><span className="md:hidden">Prot</span><span className="hidden md:inline">Protein (g)</span></th>
-                <th><span className="md:hidden">Info</span><span className="hidden md:inline">Cost (£)</span></th>
-                <th className="hidden md:table-cell">Taste</th>
-                <th><span className="sr-only md:not-sr-only">Remove</span></th>
-              </tr>
-              {viewedDiet.meals[currentDay].map((meal: MealType) => {
-                const isMealSelected = selectedMeals.some(
-                  (item: MealType) => item.name === meal.name
-                );
-                const mealCalories = meal.foods.reduce(
-                  (s, f) => s + f.calories * getFoodQuantity(f),
-                  0,
-                );
-                const mealProtein = meal.foods.reduce(
-                  (s, f) => s + f.protein * getFoodQuantity(f),
-                  0,
-                );
-                const mealCost = meal.foods.reduce(
-                  (s, f) => s + (f.cost ?? 0) * getFoodQuantity(f),
-                  0,
-                );
-                return (
-                  <tr
-                    key={meal.name}
-                    className={isMealSelected ? "selected" : ""}
-                    onClick={() => toggleMealSelection(meal)}
-                  >
-                    <td className="hidden md:table-cell">
-                      <IoIosAdd size={24} className="cursor-pointer" />
-                    </td>
-                    <td className="max-w-[96px] truncate text-left md:max-w-none">
-                      {meal.name}
-                    </td>
-                    <td className="hidden md:table-cell">{meal.foods.length}</td>
-                    <td>{mealCalories}</td>
-                    <td>{mealProtein}</td>
-                    <td>
-                      <span className="md:hidden">
-                        £{mealCost.toFixed(1)} {meal.tasteScore}/10
-                      </span>
-                      <span className="hidden md:inline">{mealCost.toFixed(2)}</span>
-                    </td>
-                    <td className="hidden md:table-cell">{meal.tasteScore}/10</td>
-                    <td>
-                      <IoIosRemove
-                        size={24}
-                        className="cursor-pointer"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          removeMealFromDiet(meal);
-                        }}
-                      />
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </Table>
+      </Card>}
+
+      <Popover open={noteEditor !== null} anchorEl={noteAnchor} onClose={handleEventCloseNote} anchorOrigin={{ vertical: "bottom", horizontal: "left" }} transformOrigin={{ vertical: "top", horizontal: "left" }} slotProps={{ paper: { sx: { width: 800, maxWidth: "calc(100vw - 32px)", maxHeight: "calc(100dvh - 32px)", borderRadius: "16px", mt: 1, border: "1px solid #e5e7eb" } } }}>
+        <div id="diet-note-editor" role="dialog" aria-labelledby="diet-note-title" className="p-5 md:p-8">
+          <h2 id="diet-note-title" className="mb-5 text-xl font-bold text-gray-800">{noteEditor?.diet} notes</h2>
+          <textarea autoFocus aria-label="Diet reference note" className="h-[45vh] min-h-[260px] w-full resize-y rounded-xl border border-gray-200 p-4 text-base leading-relaxed text-gray-800 focus:outline-blue-400" value={noteEditor?.draft ?? ""} onChange={event => setNoteEditor(previous => previous && { ...previous, draft: event.target.value })} />
+          <div className="mt-5 flex justify-end gap-3"><button type="button" disabled={noteSaving} className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600 disabled:opacity-50" onClick={handleEventCloseNote}>Close</button><button type="button" disabled={noteSaving} className="rounded-lg border border-gray-200 bg-green-100 px-4 py-2 text-sm font-semibold text-gray-800 shadow-sm hover:bg-green-200 disabled:opacity-50" onClick={() => { void handleEventSaveNote(); }}>{noteSaving ? "Saving…" : "Save note"}</button></div>
+          {noteMessage && <p role="alert" className="mt-3 text-sm text-red-700">{noteMessage}</p>}
         </div>
-        </div>
+      </Popover>
 
-        {/* Card Footer with the total. The board's columns each show their own day
-            total, so this only earns its place in the table view. */}
-        {activeView === "table" && (
-          <>
-        <CardSectionDivider title="Daily Total" />
-        <Card className="flex items-center justify-evenly min-h-[70px] mt-4 px-2 md:px-4 py-3 bg-white">
-          <div className="grid grid-cols-2 md:flex md:flex-row w-full items-center justify-evenly gap-2">
-            <p className="text-sm md:text-xl text-gray-400 font-bold">
-              Calories:{currentDayTotal.calories} kcal
-            </p>
-            <p className="text-sm md:text-xl text-gray-400 font-bold">
-              Protein:{currentDayTotal.protein} g
-            </p>
-            <p className="text-sm md:text-xl text-gray-400 font-bold">
-              Cost:£{currentDayTotal.cost.toFixed(2)}
-            </p>
-            <p className="text-sm md:text-xl text-gray-400 font-bold">
-              Taste:{currentDayTotal.tasteScore.toFixed(1)}/10
-            </p>
-          </div>
-        </Card>
-          </>
-        )}
-      </Card>
+      <MealPicker open={selectMealModalOpen} day={currentDay} meals={mealsFromDb.filter(meal => matchesMeal(meal, mealQuery))} loading={mealsAreLoading} query={mealQuery} onEventQuery={setMealQuery} onEventAdd={addMealToDiet} onEventRecipe={handleEventRecipe} onEventClose={() => setSelectMealModalOpen(false)} />
+      <MealRecipe meal={recipeMeal} taste={tasteDraft} message={tasteMessage} onEventTaste={setTasteDraft} onEventSave={() => setTasteMessage("Taste rating scope is awaiting your selection.")} onEventClose={() => setRecipeMeal(null)} />
 
-      {/* Weekly Average */}
-      <Card
-        className={`w-[calc(100%-1rem)] mt-3 md:mt-4 mb-8 bg-white p-2 md:p-4 py-4 md:py-6 ${
-          activeView === "board"
-            ? "md:w-[96%] max-w-[1600px]"
-            : "md:w-1/2 max-w-[900px]"
-        }`}
-      >
-        <CardSectionDivider title="Weekly Average" />
-        <Card className="flex items-center justify-evenly min-h-[70px] mt-4 px-2 md:px-4 py-3 bg-white">
-          <div className="grid grid-cols-2 md:flex md:flex-row w-full items-center justify-evenly gap-2">
-            <p className="text-sm md:text-xl text-gray-400 font-bold">
-              Calories:{weeklyAverage.calories.toFixed(0)} kcal
-            </p>
-            <p className="text-sm md:text-xl text-gray-400 font-bold">
-              Protein:{weeklyAverage.protein.toFixed(0)} g
-            </p>
-            <p className="text-sm md:text-xl text-gray-400 font-bold">
-              Cost:£{weeklyAverage.cost.toFixed(2)}
-            </p>
-            <p className="text-sm md:text-xl text-gray-400 font-bold">
-              Taste:{weeklyAverage.tasteScore.toFixed(1)}/10
-            </p>
-          </div>
-        </Card>
-      </Card>
-
-      <CustomModal
-        open={selectMealModalOpen}
-        sections={[
-          {
-            name: "Search Meal",
-            value: "default",
-            onChange: (e) => console.log(e.target.value),
-          },
-        ]}
-        body={
-          <div className="flex h-[150px] w-[210px] flex-col justify-start items-center overflow-x-hidden overflow-y-scroll custom-scrollbar">
-            {mealsAreLoading && (
-              <Card className="text-gray-500 mb-2 mx-2 p-2 pl-8">
-                <p className="text-gray-600 font-bold">Loading meals</p>
-              </Card>
-            )}
-            {!mealsAreLoading && mealsFromDb.length === 0 && (
-              <Card className="text-gray-500 mb-2 mx-2 p-2 pl-8">
-                <p className="text-gray-600 font-bold">No meals</p>
-              </Card>
-            )}
-            {!mealsAreLoading && mealsFromDb.map((meal: MealType) => {
-              return (
-                <Card className="text-gray-500 mb-2 mx-2 p-2 pl-8" key={meal.name}>
-                  <div className="w-full flex justify-between">
-                    <p className="text-gray-600 font-bold">{meal.name}</p>
-                    <IoIosAdd
-                      size={30}
-                      className="cursor-pointer"
-                      onClick={() => addMealToDiet(meal)}
-                    />
-                  </div>
-                  <p>Taste Score: {meal.tasteScore}/10</p>
-                </Card>
-              );
-            })}
-          </div>
-        }
-        onSubmit={() => console.log("submit")}
-        handleClose={() => setSelectMealModalOpen(false)}
-      />
-
+      {/* Clear the selected diet */}
       <BasicModal
-        open={pendingViewSwitch}
-        handleClose={() => setPendingViewSwitch(false)}
+        open={pendingClearDiet !== null}
+        handleClose={() => setPendingClearDiet(null)}
         customModal={
-          <div className="w-[calc(100vw-2rem)] max-w-[360px] bg-white border border-gray-200 rounded-2xl shadow-md px-5 py-6 flex flex-col items-center">
-            <h2 className="text-xl font-bold mb-2 text-gray-800 font-serif">
-              Unsaved changes
+          <div className="w-[calc(100vw-2rem)] max-w-[400px] bg-white border border-gray-200 rounded-2xl shadow-md px-5 py-6">
+            <h2 id="modal-modal-title" className="text-xl font-bold text-gray-800 mb-3">
+              Clear {pendingClearDiet}?
             </h2>
-            <p className="text-sm text-gray-500 text-center mb-6">
-              The week board has changes that have not been saved.
+            <p id="modal-modal-description" className="text-sm text-gray-600 mb-6">
+              Remove every planned meal from all seven days of {pendingClearDiet}, including unsaved changes. Your meal catalogue stays available.
             </p>
-            <div className="flex flex-wrap items-center justify-center gap-3">
+            <div className="flex justify-end gap-3">
               <button
                 type="button"
-                className="px-4 h-10 rounded-lg bg-green-500 hover:bg-green-600 text-white text-xs font-semibold shadow transition"
-                onClick={() => {
-                  handleEventSaveBoard();
-                  setPendingViewSwitch(false);
-                  setDietView("table");
-                }}
+                className="px-4 h-10 rounded-lg border border-gray-300 bg-white hover:bg-gray-100 text-gray-700 text-xs font-semibold shadow transition"
+                onClick={() => setPendingClearDiet(null)}
               >
-                Save
+                Cancel
               </button>
               <button
                 type="button"
                 className="px-4 h-10 rounded-lg bg-red-400 hover:bg-red-500 text-white text-xs font-semibold shadow transition"
-                onClick={() => {
-                  handleEventDiscardBoard();
-                  setPendingViewSwitch(false);
-                  setDietView("table");
-                }}
+                onClick={handleEventClearDiet}
               >
-                Discard
-              </button>
-              <button
-                type="button"
-                className="px-4 h-10 rounded-lg border border-gray-300 bg-white hover:bg-gray-100 text-gray-700 text-xs font-semibold shadow transition"
-                onClick={() => setPendingViewSwitch(false)}
-              >
-                Cancel
+                Clear diet
               </button>
             </div>
           </div>
         }
       />
+
+
     </div>
   );
 }

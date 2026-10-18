@@ -1,132 +1,84 @@
-import { Link } from "react-router-dom";
-import { pages, ValidViews, validViewsValues } from "../../pages/Pages";
+import { useLocation } from "react-router-dom";
+import { type ValidViews } from "../../pages/Pages";
 import { useAuth0 } from "@auth0/auth0-react";
 import * as React from "react";
-import { IoMdLogOut } from "react-icons/io";
-import { MenuItem, Select } from "@mui/material";
 import { ToastContainer } from "react-toastify";
-import { useCachedValue } from "../../utils";
+import PlannerNavigation from "./PlannerNavigation";
 
+// ============================================================ //
+//                                                              //
+//   NAVBAR COMPONENT                                          //
+//                                                              //
+//   Owns account authentication and mobile navigation state.   //
+//   Supplies the responsive PlannerNavigation with events.     //
+//   Page links route directly and logout ends the session.     //
+//                                                              //
+// ============================================================ //
 export default function NavbarComponent() {
-  const [currentView, setCurrentView] = useCachedValue<ValidViews>(
-    "global",
-    "diet",
-    "currentView"
-  );
-  const [currentPage, setCurrentPage] = useCachedValue<string>(
-    "global",
-    pages[currentView][0].link,
-    "currentPage"
-  );
-  const { logout, user, isAuthenticated, isLoading, loginWithRedirect, error } =
-    useAuth0();
-
+  // ====================== //
+  //                        //
+  //   STATE VARIABLES      //
+  //                        //
+  // ====================== //
+  const [openDomain, setOpenDomain] = React.useState<ValidViews | null>(null);
+  const { logout, user, isAuthenticated, isLoading, loginWithRedirect, error } = useAuth0();
+  const location = useLocation();
+  const shared = location.pathname.includes("/share/");
+  // ====================== //
+  //                        //
+  //   OBSERVE STATE        //
+  //                        //
+  // ====================== //
+  console.debug("navigation", { path: location.pathname, openDomain });
   // ====================== //
   //                        //
   //   SIDE EFFECTS         //
   //                        //
   // ====================== //
-
   React.useEffect(() => {
-    if (isAuthenticated && user) {
-      localStorage.setItem(
-        "global/email",
-        user.email?.replace("@", "_at_") || "guest"
-      );
-    }
+    if (isAuthenticated && user) localStorage.setItem("global/email", user.email?.replace("@", "_at_") || "guest");
   }, [isAuthenticated, user]);
-
+  React.useEffect(() => { setOpenDomain(null); }, [location.pathname]);
   React.useEffect(() => {
-    if (isLoading || isAuthenticated) {
-      return;
-    }
-
+    const desktop = window.matchMedia("(min-width: 900px)");
+    const handleEventResize = () => { if (desktop.matches) setOpenDomain(null); };
+    desktop.addEventListener("change", handleEventResize);
+    return () => desktop.removeEventListener("change", handleEventResize);
+  }, []);
+  React.useEffect(() => {
+    if (isLoading || isAuthenticated || shared) return;
     if (error) {
-      // A real Auth0 error (e.g. a failed silent token refresh) rather than a
-      // genuine logged-out state - redirecting immediately can bounce the user
-      // into a loop on a transient blip, so log it and give it a moment to
-      // clear before forcing a fresh login.
+      // Preserve the retry delay for transient silent-token failures.
       console.log("Auth0 error, delaying redirect to login:", error);
-      const retryTimeoutId = window.setTimeout(() => {
-        loginWithRedirect();
-      }, 3000);
+      const retryTimeoutId = window.setTimeout(() => { void loginWithRedirect(); }, 3000);
       return () => window.clearTimeout(retryTimeoutId);
     }
-
-    loginWithRedirect();
-  }, [isAuthenticated, isLoading, loginWithRedirect, error]);
-
-  // grab the current url path to see if its a shared link
-  if (window.location.pathname.includes("/share/")) {
-    return (
-      <div className="flex w-full items-center justify-center h-18 pt-4">
-        {/* Alert messages */}
-        <ToastContainer position="top-right" />
-
-        {/* This is the title and the logo */}
-        <h1 className="text-[30px] font-bold site-title">sofiaPlanner</h1>
-      </div>
-    );
+    void loginWithRedirect();
+  }, [isAuthenticated, isLoading, loginWithRedirect, error, shared]);
+  // ====================== //
+  //                        //
+  //   UI EVENT HANDLERS    //
+  //                        //
+  // ====================== //
+  // ------------------------------------------------------ Navigation
+  function handleEventDomain(domain: ValidViews) { setOpenDomain(domain); }
+  function handleEventClose() { setOpenDomain(null); }
+  // ------------------------------------------------------ Account
+  function handleEventLogout() {
+    localStorage.clear();
+    void logout({ logoutParams: { returnTo: window.location.origin } });
+    window.location.reload();
   }
-
-  return (
-    // The first line contains the seperation between the navbar and the links drop down
-    <div className="flex flex-col items-center justify-center w-full h-18 mb-6 pt-4">
-      {/* Alert messages */}
-      <ToastContainer position="top-right" />
-      {/* The second line contains the logo, title and the hamburger menu */}
-      <div className="w-full flex items-center justify-evenly">
-        <div className="flex gap-4">
-          {/* These are the two dropdown menus */}
-          <Select
-            className="h-8"
-            labelId="demo-simple-select-label"
-            id="demo-simple-select"
-            value={currentView}
-            onChange={(event) => setCurrentView(event.target.value as ValidViews)}
-          >
-            {validViewsValues.map((view, index) => (
-              <MenuItem key={index} value={view}>
-                {view}
-              </MenuItem>
-            ))}
-          </Select>
-
-          <Select
-            className="h-8"
-            labelId="demo-simple-select-label"
-            id="demo-simple-select"
-            value={currentPage}
-            onChange={(event) => setCurrentPage(event.target.value as string)}
-          >
-            {pages[currentView].map((pageMetaData, index) => (
-              <MenuItem key={index} value={pageMetaData.link}>
-                <Link to={pageMetaData.link}>{pageMetaData.name}</Link>
-              </MenuItem>
-            ))}
-          </Select>
-        </div>
-
-        {/* This is the title and the logo */}
-        <h1 className="text-[30px] font-bold site-title hidden md:block ">
-          sofiaPlanner
-        </h1>
-
-        {/* This is the user profile */}
-        <div className="flex items-center justify-center">
-          <p className="hidden md:block text-gray-400 mr-2">Hi {user?.name} ✨</p>
-          <button
-            title={"log out"}
-            onClick={() => {
-              localStorage.clear();
-              logout({ logoutParams: { returnTo: window.location.origin } });
-              window.location.reload();
-            }}
-          >
-            <IoMdLogOut className="text-gray-400 cursor-pointer" />
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+  // ====================== //
+  //                        //
+  //   UTILS METHODS        //
+  //                        //
+  // ====================== //
+  // Route selection is derived by PlannerNavigation from the current URL.
+  // ====================== //
+  //                        //
+  //   UI COMPONENTS        //
+  //                        //
+  // ====================== //
+  return <><ToastContainer position="top-right"/><PlannerNavigation openDomain={openDomain} accountName={user?.name} shared={shared} onEventDomain={handleEventDomain} onEventClose={handleEventClose} onEventLogout={handleEventLogout}/></>;
 }

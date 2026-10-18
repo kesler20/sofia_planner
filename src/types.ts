@@ -6,26 +6,33 @@ import { z } from "zod";
 //                             //
 // ----------------------------//
 
+// Retain receipt links and provenance when copying or saving a plan.
 export const FoodSchema = z.object({
+  catalogueId: z.string().optional(),
+  servingUnit: z.string().optional(),
   name: z.string(),
-  calories: z.number(),
-  protein: z.number(),
-  carbs: z.number(),
-  fat: z.number(),
+  calories: z.number().nullable(),
+  protein: z.number().nullable(),
+  carbs: z.number().nullable(),
+  fat: z.number().nullable(),
   cost: z.number().nullable(),
   vendor: z.string().nullable(),
-  amount: z.number(),
+  amount: z.number().nullable(),
   quantity: z.number().min(0).optional(),
-});
+  tasteScore: z.number().min(1).max(10).nullable().optional(),
+  convenienceScore: z.number().min(1).max(10).nullable().optional(),
+}).passthrough();
 
 export type FoodAttributeType = keyof z.infer<typeof FoodSchema>;
 
 export const MealSchema = z.object({
+  catalogueId: z.string().optional(),
   name: z.string(),
   foods: z.array(FoodSchema),
   // manual 1-10 rating on the assembled meal, not on individual foods
-  tasteScore: z.number().min(1).max(10),
-});
+  tasteScore: z.number().min(1).max(10).nullable(),
+  convenienceScore: z.number().min(1).max(10).nullable().optional(),
+}).passthrough();
 
 export type MealAttributeType = keyof z.infer<typeof MealSchema>;
 
@@ -59,7 +66,8 @@ export const DietSchema = z.object({
   // vendor-specific shopping passes, then leaves it alone
   finalizedAt: z.string().nullable(),
   meals: WeekPlanSchema,
-});
+  note: z.string().optional(),
+}).passthrough();
 
 // ----------------------------//
 //                             //

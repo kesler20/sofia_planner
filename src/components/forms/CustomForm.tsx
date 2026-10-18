@@ -58,6 +58,9 @@ export default function CustomForm(props: {
     name: string;
     value: string | number;
     onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+    required?: boolean;
+    inputType?: "text" | "number";
+    placeholder?: string;
     footer?: React.ReactNode;
     secondary?: {
       label: string;
@@ -71,6 +74,8 @@ export default function CustomForm(props: {
   longer?: boolean;
   className?: string;
   fieldsClassName?: string;
+  submitText?: string;
+  disabled?: boolean;
 }) {
   return (
     <div
@@ -83,7 +88,7 @@ export default function CustomForm(props: {
     ${props.className ?? ""}`}
     >
       <SVGBackground />
-      <form className="flex items-center justify-center flex-col h-full w-full">
+      <form className="flex items-center justify-center flex-col h-full w-full" onSubmit={event => { event.preventDefault(); if (!props.disabled) props.onSubmit(event); }}>
         {/* Header content, e.g. a date selector */}
         {props.header}
 
@@ -118,9 +123,12 @@ export default function CustomForm(props: {
                         borderBottom: "1px solid rgb(193, 197, 204)",
                       }}
                       title="write-topic"
-                      type={typeof section.value === "string" ? "text" : "number"}
-                      placeholder={`Enter ${section.name}`}
-                      required
+                      type={section.inputType ?? (typeof section.value === "string" ? "text" : "number")}
+                      min={section.inputType === "number" ? 0 : undefined}
+                      step="any"
+                      aria-label={section.name}
+                      placeholder={section.placeholder ?? `Enter ${section.name}`}
+                      required={section.required ?? true}
                       value={section.value}
                       onChange={section.onChange}
                     />
@@ -170,9 +178,11 @@ export default function CustomForm(props: {
 
         {/* Submit Button */}
         <MainButton
+          text={props.submitText}
+          disabled={props.disabled}
           onSubmit={(e) => {
             e.preventDefault();
-            props.onSubmit(e);
+            if (e.currentTarget.form?.reportValidity()) props.onSubmit(e);
           }}
         />
       </form>

@@ -1,3 +1,4 @@
+import { PlanningCard as Card } from "../../components/planning/PlanningComponents";
 import * as React from "react";
 import {
   BarChart,
@@ -13,7 +14,8 @@ import {
 } from "recharts";
 import { BarChart3, Table, TrendingUp } from "lucide-react";
 import { useStoredValue, readResourceInDb } from "../../utils";
-import { Finances } from "./BudgetsPage";
+import { validateFinances, type Finances } from "./financeBudgetTypes";
+import { z } from "zod";
 import LoadingAnimation from "../../components/LoadingAnimation";
 
 // ====================== //
@@ -22,6 +24,14 @@ import LoadingAnimation from "../../components/LoadingAnimation";
 //                        //
 // ====================== //
 
+// ============================================================ //
+//                                                              //
+//   INVESTMENT PLANNER PAGE                                    //
+//                                                              //
+//   Owns allocation inputs, confirmed budgets and forecast selection.
+//   User events flow to the owning page container.              //
+//                                                              //
+// ============================================================ //
 type Months =
   | "January"
   | "February"
@@ -53,6 +63,9 @@ type InvestmentParams = {
   dividendYield: number;
 };
 
+const investmentParamsSchema = z.object({ principal: z.number().finite(), monthlyContribution: z.number().finite(), years: z.number().finite(), inflationRate: z.number().finite(), dividendYield: z.number().finite() }).passthrough();
+const fixedInvestmentSchema = z.array(z.number().finite());
+
 type ProjectionDataPoint = {
   year: number;
   pessimistic: number;
@@ -81,21 +94,6 @@ const MONTHS: Months[] = [
   "December",
 ];
 
-const SAMPLE_BUDGET_DATA: Record<Months, number> = {
-  January: 2500,
-  February: 2200,
-  March: 2700,
-  April: 2300,
-  May: 2600,
-  June: 2400,
-  July: 2800,
-  August: 2500,
-  September: 2700,
-  October: 3000,
-  November: 2600,
-  December: 3200,
-};
-
 const UK_INFLATION_RATE = 0.025;
 const DIVIDEND_YIELD = 0.02;
 
@@ -104,21 +102,6 @@ const DIVIDEND_YIELD = 0.02;
 //   UI COMPONENTS        //
 //                        //
 // ====================== //
-
-function Card(props: {
-  className?: string;
-  children?: React.ReactNode;
-  style?: React.CSSProperties;
-}) {
-  return (
-    <div
-      style={props.style}
-      className={`border border-gray-200 rounded-2xl shadow-md px-4 w-full ${props.className}`}
-    >
-      {props.children}
-    </div>
-  );
-}
 
 function ViewToggle(props: {
   activeView: ViewMode;
@@ -319,9 +302,11 @@ function principalAtYear(year: number, params: InvestmentParams) {
 
 function ForecastChart(props: {
   params: InvestmentParams;
+  selectedYear: number | null;
+  onEventSelectYear: (year: number) => void;
   onEventChangeParam: (field: keyof InvestmentParams, value: number) => void;
 }) {
-  const [selectedYear, setSelectedYear] = React.useState<number | null>(null);
+  const selectedYear = props.selectedYear;
 
   const projectionData = React.useMemo(() => {
     const data: ProjectionDataPoint[] = [];
@@ -393,7 +378,7 @@ function ForecastChart(props: {
           margin={{ top: 10, right: 20, left: 0, bottom: 0 }}
           onClick={(state) => {
             if (state && state.activeLabel != null) {
-              setSelectedYear(Number(state.activeLabel));
+              props.onEventSelectYear(Number(state.activeLabel));
             }
           }}
         >
@@ -631,13 +616,16 @@ export default function InvestmentPlannerPage() {
   // ====================== //
 
   const email = localStorage.getItem("global/email") || "guest";
-  const [fixedInvestmentArray, setFixedInvestmentArray, isFixedInvestmentLoading] =
-    useStoredValue<number[]>(email, [500], "monthly_fixed_investment");
+  const [fixedInvestmentArray, setFixedInvestmentArray, isFixedInvestmentLoading, fixedInvestmentError] =
+    useStoredValue<number[]>(email, [500], "monthly_fixed_investment", undefined, fixedInvestmentSchema.parse);
   const fixedInvestment = fixedInvestmentArray[0] ?? 500;
+  const [selectedYear, setSelectedYear] = React.useState<number | null>(null);
   const [activeView, setActiveView] = React.useState<ViewMode>("chart");
   const [monthlyBudgetData, setMonthlyBudgetData] =
-    React.useState<Record<Months, number>>(SAMPLE_BUDGET_DATA);
-  const [investmentParams, setInvestmentParams, isInvestmentsLoading] =
+    React.useState<Record<Months, number> | null>(null);
+  const [budgetLoading, setBudgetLoading] = React.useState(true);
+  const [budgetError, setBudgetError] = React.useState(false);
+  const [investmentParams, setInvestmentParams, isInvestmentsLoading, investmentError] =
     useStoredValue<InvestmentParams>(
       email,
       {
@@ -648,6 +636,8 @@ export default function InvestmentPlannerPage() {
         dividendYield: DIVIDEND_YIELD,
       },
       "investment_params",
+      undefined,
+      investmentParamsSchema.parse,
     );
 
   // ====================== //
@@ -656,23 +646,23 @@ export default function InvestmentPlannerPage() {
   //                        //
   // ====================== //
 
-  React.useEffect(() => {
-    setInvestmentParams((prev) => ({
-      ...prev,
-      monthlyContribution: fixedInvestment,
-    }));
-  }, [fixedInvestment]);
-
   // Read monthly net from BudgetsPage database (key: "monthlyBalance")
   React.useEffect(() => {
+    let active = true;
+    setBudgetLoading(true);
+    setBudgetError(false);
+    setMonthlyBudgetData(null);
     readResourceInDb<string>(email, "monthlyBalance").then(({ result, error }) => {
+      if (!active) return;
       if (error || !result) {
-        console.log("Error loading monthlyBalance for investments:", error);
+        console.log("Error loading monthlyBalance for investments");
+        setBudgetError(true);
+        setBudgetLoading(false);
         return;
       }
       try {
-        const finances = JSON.parse(result) as Finances;
-        const budgetData: Record<Months, number> = {} as any;
+        const finances: Finances = validateFinances(JSON.parse(result));
+        const budgetData = {} as Record<Months, number>;
         (Object.keys(finances) as Months[]).forEach((month) => {
           const cats = finances[month]?.categories || [];
           let totalIn = 0,
@@ -693,11 +683,13 @@ export default function InvestmentPlannerPage() {
           budgetData[month] = totalIn - totalOut;
         });
         setMonthlyBudgetData(budgetData);
-      } catch (e) {
-        console.log("Error parsing monthlyBalance:", e);
-      }
+      } catch {
+        console.log("Error parsing monthlyBalance for investments");
+        setBudgetError(true);
+      } finally { setBudgetLoading(false); }
     });
-  }, []);
+    return () => { active = false; };
+  }, [email]);
 
   // ====================== //
   //                        //
@@ -708,7 +700,7 @@ export default function InvestmentPlannerPage() {
   console.log("activeView", activeView);
   console.log("fixedInvestment", fixedInvestment);
 
-  if (isFixedInvestmentLoading || isInvestmentsLoading) {
+  if (isFixedInvestmentLoading || isInvestmentsLoading || budgetLoading) {
     return <LoadingAnimation />;
   }
 
@@ -717,6 +709,8 @@ export default function InvestmentPlannerPage() {
   //   UTILS METHODS        //
   //                        //
   // ====================== //
+
+  if (budgetError || fixedInvestmentError || investmentError || !monthlyBudgetData) return <p role="alert" className="p-6 text-gray-700">Investment data is unavailable. Refresh before editing.</p>;
 
   const calculateAllocations = (): MonthlyAllocation[] => {
     return MONTHS.map((month) => {
@@ -756,7 +750,7 @@ export default function InvestmentPlannerPage() {
     field: keyof InvestmentParams,
     value: number,
   ) => {
-    setInvestmentParams((prev) => ({ ...prev, [field]: value }));
+    setInvestmentParams((prev) => ({ ...prev, monthlyContribution: fixedInvestment, [field]: value }));
     if (field === "monthlyContribution") setFixedInvestmentArray([value]);
   };
 
@@ -792,7 +786,9 @@ export default function InvestmentPlannerPage() {
         {activeView === "table" && <MonthlyTable data={allocations} />}
         {activeView === "forecast" && (
           <ForecastChart
-            params={investmentParams}
+            params={{ ...investmentParams, monthlyContribution: fixedInvestment }}
+            selectedYear={selectedYear}
+            onEventSelectYear={setSelectedYear}
             onEventChangeParam={handleEventChangeInvestmentParam}
           />
         )}

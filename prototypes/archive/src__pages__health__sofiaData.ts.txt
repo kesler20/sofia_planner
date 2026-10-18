@@ -1,0 +1,33 @@
+import axios from "axios";
+import { createResourceInDb, readResourceInDb } from "../../utils";
+import { emptySofiaConfig, sofiaConfigSchema, sofiaSnapshotSchema } from "./sofiaTypes";
+import type { SofiaConfig, SofiaSnapshot } from "./sofiaTypes";
+
+export async function loadSofiaConfig(user: string): Promise<SofiaConfig> {
+  const { result, error } = await readResourceInDb<string>(user, "sofia_config");
+  if (axios.isAxiosError(error) && error.response?.status === 404) return emptySofiaConfig();
+  if (error || result === undefined) {
+    console.error("Unable to load Sofia settings", error);
+    throw new Error("Unable to load Sofia settings");
+  }
+  return sofiaConfigSchema.parse(typeof result === "string" ? JSON.parse(result) : result);
+}
+
+export async function saveSofiaConfig(user: string, config: SofiaConfig): Promise<void> {
+  const validated = sofiaConfigSchema.parse(config);
+  const { result, error } = await createResourceInDb(user, "sofia_config", JSON.stringify(validated));
+  if (error || result === undefined || result === false) {
+    console.error("Unable to save Sofia settings", error ?? "Backend did not confirm the write");
+    throw new Error("Unable to save Sofia settings");
+  }
+}
+
+export async function loadSofiaSnapshot(user: string): Promise<SofiaSnapshot | null> {
+  const { result, error } = await readResourceInDb<string>(user, "sofia_monitoring");
+  if (axios.isAxiosError(error) && error.response?.status === 404) return null;
+  if (error || result === undefined) {
+    console.error("Unable to load Sofia monitoring choices", error);
+    throw new Error("Unable to load Sofia monitoring choices");
+  }
+  return sofiaSnapshotSchema.parse(typeof result === "string" ? JSON.parse(result) : result);
+}

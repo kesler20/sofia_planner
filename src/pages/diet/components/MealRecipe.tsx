@@ -1,0 +1,18 @@
+import * as React from "react";
+import BasicModal from "../../../components/modal/BasicModal";
+import type { MealType } from "../../../types";
+import { mealTotals, formatNutrient } from "../dietPlanning";
+
+export function MealRecipe(props: { meal: MealType | null; taste: string; saving?: boolean; message?: string; onEventTaste: (taste: string) => void; onEventSave: () => void; onEventClose: () => void }): React.ReactElement | null {
+  if (!props.meal) return null;
+  const total = mealTotals(props.meal);
+  return <BasicModal open handleClose={props.onEventClose} customModal={
+    <section role="dialog" aria-modal="true" aria-label="Meal recipe" className="flex max-h-[90dvh] w-[94vw] max-w-5xl flex-col rounded-2xl border border-gray-200 bg-white p-5 shadow-xl">
+      <header className="mb-4 flex items-start justify-between gap-4"><div><h2 className="text-xl font-semibold text-gray-800">{props.meal.name}</h2><p className="mt-1 text-sm text-gray-500">Food quantities and their contribution to this meal</p></div><button type="button" aria-label="Close recipe" onClick={props.onEventClose} className="rounded-lg border px-4 py-2">Close</button></header>
+      <div className="min-h-0 overflow-auto"><table className="w-full min-w-[660px] text-left text-sm"><thead><tr>{["Food", "Quantity", "Calories", "Protein", "Carbs", "Fat", "Cost"].map(label => <th key={label} className="border-b p-3">{label}</th>)}</tr></thead><tbody>
+        {props.meal.foods.map((food, index) => { const quantity = food.quantity ?? 1; return <tr key={index} className="border-b"><td className="p-3 font-medium">{food.name}</td><td className="p-3">{typeof food.mfpQuantityText === "string" ? `${quantity} × ${food.mfpQuantityText}` : `${quantity} × ${food.amount ?? "Unknown"} ${food.servingUnit ?? "per serving"}`}</td><td className="p-3">{formatNutrient(food.calories === null ? null : food.calories * quantity, 1)} kcal</td><td className="p-3">{formatNutrient(food.protein === null ? null : food.protein * quantity, 1)} g</td><td className="p-3">{formatNutrient(food.carbs === null ? null : food.carbs * quantity, 1)} g</td><td className="p-3">{formatNutrient(food.fat === null ? null : food.fat * quantity, 1)} g</td><td className="p-3">{food.cost === null ? "Unknown" : `£${(food.cost * quantity).toFixed(2)}${food.costIsEstimated === true ? " (est.)" : ""}`}</td></tr>; })}
+      </tbody><tfoot><tr className="font-semibold"><td className="p-3" colSpan={2}>Meal total</td><td className="p-3">{formatNutrient(total.calories, 1)} kcal</td><td className="p-3">{formatNutrient(total.protein, 1)} g</td><td className="p-3">{formatNutrient(total.carbs, 1)} g</td><td className="p-3">{formatNutrient(total.fat, 1)} g</td><td className="p-3">{total.cost === null ? "Unknown" : `£${total.cost.toFixed(2)}${props.meal.foods.some(food => food.costIsEstimated === true) ? " (est.)" : ""}`}</td></tr></tfoot></table></div>
+      <form onSubmit={event => { event.preventDefault(); props.onEventSave(); }} className="mt-5 flex flex-wrap items-end gap-3 border-t pt-5"><label className="text-sm font-medium text-gray-700">Taste score (1 to 10)<input aria-label="Taste score" type="number" min={1} max={10} step={0.1} placeholder="Unrated" value={props.taste} onChange={event => props.onEventTaste(event.target.value)} className="mt-2 block w-32 rounded-lg border px-3 py-2" /></label><button type="submit" disabled={props.saving} className="rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{props.saving ? "Saving" : "Save taste score"}</button><p className="text-sm text-gray-500">Leave empty to clear your rating.</p>{props.message && <p role="status" className="w-full text-sm">{props.message}</p>}</form>
+    </section>
+  } />;
+}

@@ -4,6 +4,7 @@ import { FaArrowUpRightFromSquare } from "react-icons/fa6";
 export default function MainButton(props: {
   onSubmit: MouseEventHandler<HTMLButtonElement> | undefined;
   text?: string;
+  disabled?: boolean;
   className?: string;
   iconOnlyOnMobile?: boolean;
 }) {
@@ -11,6 +12,7 @@ export default function MainButton(props: {
 
   return (
     <button
+      disabled={props.disabled}
       title={buttonText}
       className={`modal__card__btn--create ${
         props.iconOnlyOnMobile ? "modal__card__btn--mobile-icon" : ""

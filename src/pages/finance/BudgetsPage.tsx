@@ -1,4 +1,7 @@
-import { MenuItem, Select, SelectChangeEvent, TextField } from "@mui/material";
+import { validateFinances, type CategoryType, type Category, type Months, type Finances } from "./financeBudgetTypes";
+import { BudgetCategory, type BudgetEditDraft } from "./components/BudgetCategory";
+import { PlanningCard as Card, PlanningHeading as Header, PlanningToolbarButton } from "../../components/planning/PlanningComponents";
+import { MenuItem, Select, SelectChangeEvent } from "@mui/material";
 import * as React from "react";
 import { CiCirclePlus } from "react-icons/ci";
 import { FaTrashAlt } from "react-icons/fa";
@@ -15,34 +18,14 @@ import LoadingAnimation from "../../components/LoadingAnimation";
 //             //
 // =========== //
 
-type CategoryType = "income" | "expense";
-type Category = {
-  name: string;
-  type: CategoryType;
-  sections: { name: string; value: number }[];
-  isVariable?: boolean;
-  variableId?: string;
-};
-export type Months =
-  | "January"
-  | "February"
-  | "March"
-  | "April"
-  | "May"
-  | "June"
-  | "July"
-  | "August"
-  | "September"
-  | "October"
-  | "November"
-  | "December";
-export type Finances = Record<
-  Months,
-  {
-    categories: Category[];
-  }
->;
-
+// ============================================================ //
+//                                                              //
+//   BUDGETS PAGE                                               //
+//                                                              //
+//   Owns monthly budget edits, controlled drafts and persistence.
+//   User events flow to the owning page container.              //
+//                                                              //
+// ============================================================ //
 // ================== //
 //                    //
 //   UI COMPONENTS    //
@@ -97,244 +80,6 @@ function PopupMenu(props: {
   );
 }
 
-function Card(props: {
-  className?: string;
-  children?: React.ReactNode;
-  style?: React.CSSProperties;
-  onClick?: () => void;
-}) {
-  return (
-    <div
-      onClick={props.onClick}
-      style={props.style}
-      className={`
-    border border-gray-200 rounded-2xl shadow-md
-    px-4
-    w-full
-    ${props.className}`}
-    >
-      {props.children}
-    </div>
-  );
-}
-
-type CategoryItemProps = {
-  name: string;
-  value: number;
-  onDeleteCategoryItem: () => void;
-  onChangeCategoryItemName: (newItemName: string) => void;
-  onChangeCategoryItemValue: (newItemValue: number) => void;
-};
-
-const CategoryItem = React.memo(function CategoryItem(props: CategoryItemProps) {
-  const [nameDisplayMode, setNameDisplayMode] = React.useState<"edit" | "view">(
-    "view",
-  );
-  const [valueDisplayMode, setValueDisplayMode] = React.useState<"edit" | "view">(
-    "view",
-  );
-  const [itemName, setItemName] = React.useState<string>(props.name);
-  const [itemValue, setItemValue] = React.useState<number>(props.value);
-
-  // keep local state in sync with parent updates
-  React.useEffect(() => setItemName(props.name), [props.name]);
-  React.useEffect(() => setItemValue(props.value), [props.value]);
-
-  return (
-    <div className="flex h-[60px] w-full items-center justify-evenly">
-      <div className="w-[60%] flex items-center justify-between">
-        {nameDisplayMode === "view" && (
-          <h1
-            className="md:text-2xl text-gray-400 font-bold"
-            onClick={() => setNameDisplayMode("edit")}
-          >
-            {itemName}
-          </h1>
-        )}
-        {nameDisplayMode === "edit" && (
-          <TextField
-            type="text"
-            id="outlined-basic"
-            label={itemName}
-            variant="outlined"
-            size="small"
-            onChange={(event) => setItemName(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                setNameDisplayMode("view");
-                props.onChangeCategoryItemName(itemName);
-              }
-            }}
-          />
-        )}
-        {valueDisplayMode === "view" && (
-          <h3
-            className="md:text-2xl text-gray-400 font-bold"
-            onClick={() => setValueDisplayMode("edit")}
-          >
-            {itemValue}
-          </h3>
-        )}
-        {valueDisplayMode === "edit" && (
-          <TextField
-            type="number"
-            id="outlined-basic"
-            label={itemValue.toString()}
-            variant="outlined"
-            value={itemValue}
-            onChange={(event) => setItemValue(Number(event.target.value))}
-            size="small"
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                setValueDisplayMode("view");
-                props.onChangeCategoryItemValue(itemValue);
-              }
-            }}
-          />
-        )}
-      </div>
-      {(nameDisplayMode === "edit" || valueDisplayMode === "edit") && (
-        <div
-          className={`
-      w-[60px]
-      flex justify-center items-center
-      border-[2px] border-gray-[rgb(196,196,196)]
-      bg-red-300 p-2 hover:bg-red-200
-      rounded-lg
-      cursor-pointer
-    `}
-        >
-          <FaTrashAlt
-            className="hover:text-gray-600 text-gray-800"
-            onClick={props.onDeleteCategoryItem}
-          />
-        </div>
-      )}
-    </div>
-  );
-});
-
-// TODO: the className, style and onClick property could be replaced using a higher order component
-
-type CategoryProps = {
-  name: string;
-  sections: { name: string; value: number }[];
-  isVariable: boolean;
-  onChangeCategoryName: (newCategoryName: string) => void;
-  onDeleteCategory: () => void;
-  onAddCategoryItem: () => void;
-  onChangeCategoryItemName: (newItemName: string, categoryItemIndex: number) => void;
-  onChangeCategoryItemValue: (
-    newItemValue: number,
-    categoryItemIndex: number,
-  ) => void;
-  onDeleteCategoryItem: (categoryItemIndex: number) => void;
-  onToggleCategoryVariable: () => void;
-  className?: string;
-  style?: React.CSSProperties;
-  onClick?: () => void;
-  onDoubleClick?: () => void;
-};
-
-const Category = React.memo(function Category(props: CategoryProps) {
-  const [viewMode, setViewMode] = React.useState<"edit" | "view">("view");
-  const [categoryName, setCategoryName] = React.useState<string>(props.name);
-
-  React.useEffect(() => setCategoryName(props.name), [props.name]);
-
-  // Calculate total value for this category
-  const totalValue = React.useMemo(
-    () => props.sections.reduce((sum, section) => sum + section.value, 0),
-    [props.sections],
-  );
-
-  return (
-    <div onDoubleClick={props.onDoubleClick}>
-      <Card
-        className={`w-[96%] mt-4 bg-white p-2 ${props.className}`}
-        onClick={props.onClick}
-        style={props.style}
-      >
-        <div className="flex items-center justify-between">
-          {/* Add Category Item Button */}
-          <CiCirclePlus
-            size={36}
-            className="cursor-pointer hover:text-gray-600 text-gray-800 mr-4"
-            onClick={props.onAddCategoryItem}
-          />
-          {/* Category Name */}
-          {viewMode === "edit" ? (
-            <TextField
-              type="text"
-              id="outlined-basic"
-              label={categoryName}
-              variant="outlined"
-              size="small"
-              onChange={(event) => setCategoryName(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  setViewMode("view");
-                  props.onChangeCategoryName(categoryName);
-                }
-              }}
-            />
-          ) : (
-            <h2
-              className="md:text-2xl text-gray-800 font-bold"
-              onClick={() => setViewMode("edit")}
-            >
-              {categoryName}
-            </h2>
-          )}
-          <button
-            type="button"
-            className={
-              props.isVariable
-                ? "ml-2 px-2 py-1 rounded-full bg-blue-500 text-white text-xs font-semibold"
-                : "ml-2 px-2 py-1 rounded-full bg-gray-200 text-gray-700 text-xs font-semibold"
-            }
-            title={
-              props.isVariable ? "Variable category (shared)" : "Local category"
-            }
-            onClick={props.onToggleCategoryVariable}
-          >
-            Var
-          </button>
-          {/* Delete Category Button */}
-          <div
-            className="border-gray-800 border-[1.5px] rounded-full p-2 flex items-center justify-center ml-4"
-            onClick={props.onDeleteCategory}
-          >
-            <FaTrashAlt className="cursor-pointer hover:text-red-200 text-red-300" />
-          </div>
-        </div>
-        {props.sections.map((section, index) => (
-          <CategoryItem
-            key={index}
-            name={section.name}
-            value={section.value}
-            onDeleteCategoryItem={() => props.onDeleteCategoryItem(index)}
-            onChangeCategoryItemName={(newItemName) =>
-              props.onChangeCategoryItemName(newItemName, index)
-            }
-            onChangeCategoryItemValue={(newItemValue) =>
-              props.onChangeCategoryItemValue(newItemValue, index)
-            }
-          />
-        ))}
-        {/* Show total at the bottom if more than 1 item */}
-        {props.sections.length > 1 && (
-          <Card className="flex items-center justify-center h-[40px] mt-4 px-4 py-1 bg-gray-50 border border-gray-200 rounded-xl shadow">
-            <span className="text-base md:text-lg font-semibold text-gray-500">
-              Total: {totalValue.toFixed(2)}
-            </span>
-          </Card>
-        )}
-      </Card>
-    </div>
-  );
-});
-
 function CategoryContainer(props: {
   children?: React.ReactNode;
   categoryType: CategoryType;
@@ -347,16 +92,6 @@ function CategoryContainer(props: {
     <div className="flex flex-col w-full bg-red-100 rounded-2xl p-4 overflow-y-scroll scrollbar-hide h-[45vh]">
       {props.children}
     </div>
-  );
-}
-
-function Header(props: { text: string; className?: string }) {
-  return (
-    <h1
-      className={`text-xl md:text-4xl text-gray-800 font-serif font-bold ${props.className}`}
-    >
-      {props.text}
-    </h1>
   );
 }
 
@@ -412,22 +147,8 @@ function MonthlyActionButtons(props: {
   if (!isMobile) {
     return (
       <div className="flex items-center">
-        <button
-          className="ml-2 px-3 h-14 py-1 rounded-lg border border-gray-300 bg-white hover:bg-gray-100 text-gray-700 text-xs font-semibold shadow transition flex items-center gap-1"
-          title="Paste Categories"
-          onClick={props.pasteSelectedCategoriesFromClipboard}
-        >
-          <MdContentPaste size={16} className="inline" />
-          Paste
-        </button>
-        <button
-          className="ml-2 px-3 h-14 py-1 rounded-lg border border-gray-300 bg-white hover:bg-gray-100 text-gray-700 text-xs font-semibold shadow transition flex items-center gap-1"
-          title="Export Monthly Balances"
-          onClick={props.exportMonthlyBalances}
-        >
-          <span className="inline">📤</span>
-          Export
-        </button>
+        <PlanningToolbarButton label="Paste Categories" onEventClick={props.pasteSelectedCategoriesFromClipboard}><MdContentPaste size={16} className="inline" />Paste</PlanningToolbarButton>
+        <PlanningToolbarButton label="Export Monthly Balances" onEventClick={props.exportMonthlyBalances}><span className="inline">📤</span>Export</PlanningToolbarButton>
         <label
           className="ml-2 px-3 h-14 py-1 rounded-lg border border-gray-300 bg-white hover:bg-gray-100 text-gray-700 text-xs font-semibold shadow transition cursor-pointer flex items-center gap-1"
           title="Import Monthly Balances"
@@ -915,13 +636,15 @@ export default function BudgetsPage() {
     "January",
     "currentMonth",
   );
-  const [cachedMonthlyBalance, setCachedMonthlyBalance, isLoading] =
-    useStoredValue<Finances>(email, defaultMonthlyBalance, "monthlyBalance");
+  const [cachedMonthlyBalance, setCachedMonthlyBalance, isLoading, loadError] =
+    useStoredValue<Finances>(email, defaultMonthlyBalance, "monthlyBalance", undefined, validateFinances);
   const [monthlyBalance, send] = React.useReducer(
     monthlyBalanceReducer,
     cachedMonthlyBalance,
     (initial) => initial,
   );
+  const [editing, setEditing] = React.useState<Record<string, BudgetEditDraft>>({});
+  React.useEffect(() => { setEditing({}); }, [currentMonth]);
   const [selectedCategories, setSelectedCategories] = React.useState<Category[]>([]);
 
   // Derived totals for instant UI updates
@@ -953,8 +676,7 @@ export default function BudgetsPage() {
     return net;
   }, [monthlyBalance]);
 
-  console.log("selectedCategories", selectedCategories);
-  console.log("cachedMonthlyBalance", monthlyBalance[currentMonth]);
+  console.log("budget selection", { selectedCount: selectedCategories.length, currentMonth, isLoading, unavailable: !!loadError });
 
   // =======================//
   //                        //
@@ -962,25 +684,42 @@ export default function BudgetsPage() {
   //                        //
   // =======================//
 
-  // Sync from database to reducer once when data loads
+  // Hydrate first, then persist reducer edits on later renders.
   const hasInitialized = React.useRef(false);
+  React.useEffect(() => { hasInitialized.current = false; }, [email]);
   React.useEffect(() => {
-    if (!isLoading && !hasInitialized.current) {
+    if (isLoading || loadError) return;
+    if (!hasInitialized.current) {
       hasInitialized.current = true;
       send({ type: "SET_MONTHLY_BALANCE", params: cachedMonthlyBalance });
+      return;
     }
-  }, [isLoading]);
-
-  // Update cachedMonthlyBalance when monthlyBalance changes (persist to DB)
-  React.useEffect(() => {
-    if (!isLoading && hasInitialized.current) {
-      setCachedMonthlyBalance(monthlyBalance);
-    }
-  }, [monthlyBalance, setCachedMonthlyBalance, isLoading]);
+    setCachedMonthlyBalance(monthlyBalance);
+  }, [isLoading, loadError, cachedMonthlyBalance, monthlyBalance, setCachedMonthlyBalance]);
 
   if (isLoading) {
     return <LoadingAnimation />;
   }
+
+  if (loadError) return <p role="alert" className="p-6 text-gray-700">{loadError}</p>;
+
+  // ====================== //
+  //                        //
+  //   UI EVENT HANDLERS    //
+  //                        //
+  // ====================== //
+  // ------------------------------------------------------ Budget editing
+  const handleEventEdit = (key: string, patch: Partial<BudgetEditDraft>) => setEditing(previous => ({...previous, [key]: {...previous[key], ...patch}}));
+
+  const handleEventRemoveDraftIndex = (prefix: string, removed: number) => {
+    setEditing(previous => Object.fromEntries(Object.entries(previous).flatMap(([key, draft]) => {
+      if (!key.startsWith(prefix)) return [[key, draft]];
+      const [index, ...rest] = key.slice(prefix.length).split("/");
+      const position = Number(index);
+      if (position === removed) return [];
+      return [[`${prefix}${position > removed ? position - 1 : position}${rest.length ? "/" + rest.join("/") : ""}`, draft]];
+    })));
+  };
 
   // ======================//
   //                       //
@@ -1079,7 +818,9 @@ export default function BudgetsPage() {
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
-        const json = JSON.parse(e.target?.result as string);
+        const json = validateFinances(JSON.parse(e.target?.result as string));
+        // Imported budgets replace the resource, so existing field drafts no longer apply.
+        setEditing({});
         setCachedMonthlyBalance(json);
         send({ type: "SET_MONTHLY_BALANCE", params: json });
         toastFactory("Imported monthly balances!", MessageSeverity.INFO);
@@ -1146,9 +887,12 @@ export default function BudgetsPage() {
             {monthlyBalance[currentMonth].categories.map((category, index) => {
               if (category.type === "income") {
                 return (
-                  <Category
+                  <BudgetCategory
+                    editKey={`${currentMonth}/${index}`}
+                    edits={editing}
+                    onEventEdit={handleEventEdit}
                     className="cursor-pointer hover:bg-gray-100"
-                    onDoubleClick={() => toggleCategorySelection(category)}
+                    onEventDoubleClick={() => toggleCategorySelection(category)}
                     style={{
                       borderColor: selectedCategories.some(
                         (item) =>
@@ -1162,7 +906,7 @@ export default function BudgetsPage() {
                     name={category.name}
                     sections={category.sections}
                     isVariable={Boolean(category.isVariable)}
-                    onChangeCategoryName={(newCategoryName) => {
+                    onEventChangeCategoryName={(newCategoryName) => {
                       send({
                         type: "CHANGE_CATEGORY_NAME",
                         params: {
@@ -1172,19 +916,20 @@ export default function BudgetsPage() {
                         },
                       });
                     }}
-                    onDeleteCategory={() => {
+                    onEventDeleteCategory={() => {
+                      handleEventRemoveDraftIndex(`${currentMonth}/`, index);
                       send({
                         type: "DELETE_CATEGORY",
                         params: { index, currentMonth },
                       });
                     }}
-                    onToggleCategoryVariable={() => {
+                    onEventToggleCategoryVariable={() => {
                       send({
                         type: "TOGGLE_CATEGORY_VARIABLE",
                         params: { index, currentMonth },
                       });
                     }}
-                    onAddCategoryItem={() => {
+                    onEventAddCategoryItem={() => {
                       send({
                         type: "ADD_CATEGORY_ITEM",
                         params: {
@@ -1194,7 +939,7 @@ export default function BudgetsPage() {
                         },
                       });
                     }}
-                    onChangeCategoryItemName={(newItemName, categoryItemIndex) => {
+                    onEventChangeCategoryItemName={(newItemName, categoryItemIndex) => {
                       send({
                         type: "CHANGE_CATEGORY_ITEM_NAME",
                         params: {
@@ -1205,7 +950,7 @@ export default function BudgetsPage() {
                         },
                       });
                     }}
-                    onChangeCategoryItemValue={(
+                    onEventChangeCategoryItemValue={(
                       newCategoryItemValue,
                       categoryItemIndex,
                     ) => {
@@ -1219,7 +964,8 @@ export default function BudgetsPage() {
                         },
                       });
                     }}
-                    onDeleteCategoryItem={(categoryItemIndex) => {
+                    onEventDeleteCategoryItem={(categoryItemIndex) => {
+                      handleEventRemoveDraftIndex(`${currentMonth}/${index}/section/`, categoryItemIndex);
                       send({
                         type: "DELETE_CATEGORY_ITEM",
                         params: {
@@ -1259,31 +1005,35 @@ export default function BudgetsPage() {
             {monthlyBalance[currentMonth].categories.map((category, index) => {
               if (category.type === "expense") {
                 return (
-                  <Category
-                    onDoubleClick={() => toggleCategorySelection(category)}
+                  <BudgetCategory
+                    editKey={`${currentMonth}/${index}`}
+                    edits={editing}
+                    onEventEdit={handleEventEdit}
+                    onEventDoubleClick={() => toggleCategorySelection(category)}
                     key={index}
                     name={category.name}
                     sections={category.sections}
                     isVariable={Boolean(category.isVariable)}
-                    onChangeCategoryName={(newCategoryName) => {
+                    onEventChangeCategoryName={(newCategoryName) => {
                       send({
                         type: "CHANGE_CATEGORY_NAME",
                         params: { currentMonth, index, newCategoryName },
                       });
                     }}
-                    onDeleteCategory={() => {
+                    onEventDeleteCategory={() => {
+                      handleEventRemoveDraftIndex(`${currentMonth}/`, index);
                       send({
                         type: "DELETE_CATEGORY",
                         params: { index, currentMonth },
                       });
                     }}
-                    onToggleCategoryVariable={() => {
+                    onEventToggleCategoryVariable={() => {
                       send({
                         type: "TOGGLE_CATEGORY_VARIABLE",
                         params: { index, currentMonth },
                       });
                     }}
-                    onAddCategoryItem={() => {
+                    onEventAddCategoryItem={() => {
                       send({
                         type: "ADD_CATEGORY_ITEM",
                         params: {
@@ -1293,7 +1043,7 @@ export default function BudgetsPage() {
                         },
                       });
                     }}
-                    onChangeCategoryItemName={(newItemName, categoryItemIndex) => {
+                    onEventChangeCategoryItemName={(newItemName, categoryItemIndex) => {
                       send({
                         type: "CHANGE_CATEGORY_ITEM_NAME",
                         params: {
@@ -1304,7 +1054,7 @@ export default function BudgetsPage() {
                         },
                       });
                     }}
-                    onChangeCategoryItemValue={(newItemValue, categoryItemIndex) => {
+                    onEventChangeCategoryItemValue={(newItemValue, categoryItemIndex) => {
                       send({
                         type: "CHANGE_CATEGORY_ITEM_VALUE",
                         params: {
@@ -1315,7 +1065,8 @@ export default function BudgetsPage() {
                         },
                       });
                     }}
-                    onDeleteCategoryItem={(categoryItemIndex) => {
+                    onEventDeleteCategoryItem={(categoryItemIndex) => {
+                      handleEventRemoveDraftIndex(`${currentMonth}/${index}/section/`, categoryItemIndex);
                       send({
                         type: "DELETE_CATEGORY_ITEM",
                         params: {

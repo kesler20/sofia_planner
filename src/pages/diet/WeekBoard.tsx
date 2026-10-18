@@ -1,8 +1,9 @@
+import { PlanningCard as Card, PlanningItemHeading, PlanningDeleteButton, PlanningAddButton } from "../../components/planning/PlanningComponents";
 import * as React from "react";
 import {
   DndContext,
   DragOverlay,
-  PointerSensor,
+  MouseSensor,
   TouchSensor,
   closestCorners,
   useDroppable,
@@ -18,42 +19,16 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { CiCirclePlus } from "react-icons/ci";
-import { IoIosClose } from "react-icons/io";
+import { FaArrowUpRightFromSquare } from "react-icons/fa6";
 import { MealType, WEEKDAYS, WeekdayType, WeekPlanType } from "../../types";
-import toastFactory, {
-  MessageSeverity,
-} from "../../components/notification/ToastMessages";
+import { mealTotals, formatNutrient, sumKnown } from "./dietPlanning";
 
 export type DayTotals = {
-  calories: number;
-  protein: number;
-  cost: number;
-  tasteScore: number;
+  calories: number | null;
+  protein: number | null;
+  cost: number | null;
+  tasteScore: number | null;
 };
-
-// Local Card, matching the one BudgetsPage.tsx keeps for its category columns, so the
-// board shares the finance visual language without importing back from Diet.tsx.
-function Card(props: {
-  className?: string;
-  children?: React.ReactNode;
-  style?: React.CSSProperties;
-  onClick?: () => void;
-}) {
-  return (
-    <div
-      onClick={props.onClick}
-      style={props.style}
-      className={`
-    border border-gray-200 rounded-2xl shadow-md
-    px-4
-    w-full
-    ${props.className ?? ""}`}
-    >
-      {props.children}
-    </div>
-  );
-}
 
 /**
  * The slot chip is derived from position, never stored: the first meal of a day reads
@@ -67,14 +42,11 @@ const mealSlot = (index: number): string => {
   return "Snack";
 };
 
-// Days never contain "::" so the first occurrence always separates day from meal name.
-const cardId = (day: WeekdayType, mealName: string) => `${day}::${mealName}`;
-
 const parseCardId = (id: string) => {
   const separator = id.indexOf("::");
   return {
     day: id.slice(0, separator) as WeekdayType,
-    mealName: id.slice(separator + 2),
+    token: id.slice(separator + 2),
   };
 };
 
@@ -82,10 +54,10 @@ const isColumnId = (id: string): id is WeekdayType =>
   (WEEKDAYS as string[]).includes(id);
 
 const mealCalories = (meal: MealType, quantityOf: (food: MealType["foods"][number]) => number) =>
-  meal.foods.reduce((sum, food) => sum + food.calories * quantityOf(food), 0);
+  sumKnown(meal.foods.map(food => food.calories === null ? null : food.calories * quantityOf(food)));
 
 const mealProtein = (meal: MealType, quantityOf: (food: MealType["foods"][number]) => number) =>
-  meal.foods.reduce((sum, food) => sum + food.protein * quantityOf(food), 0);
+  sumKnown(meal.foods.map(food => food.protein === null ? null : food.protein * quantityOf(food)));
 
 const mealCost = (meal: MealType, quantityOf: (food: MealType["foods"][number]) => number) =>
   meal.foods.reduce((sum, food) => sum + (food.cost ?? 0) * quantityOf(food), 0);
@@ -95,51 +67,45 @@ function MealCard(props: {
   slot: string;
   quantityOf: (food: MealType["foods"][number]) => number;
   onRemove?: () => void;
+  onEventRecipe?: () => void;
+  onEventSelect?: () => void;
   isOverlay?: boolean;
 }) {
   return (
-    <Card className="bg-white p-2 mb-2">
+    <Card className="bg-white p-2 mb-3 cursor-pointer" onEventClick={props.onEventSelect} onEventContextMenu={event => { if (props.onEventRecipe) { event.preventDefault(); props.onEventRecipe(); } }}>
       <div className="flex items-center justify-between">
         <span className="rounded-full px-2 py-1 text-xs font-semibold bg-gray-200 text-gray-700">
           {props.slot}
         </span>
         {!props.isOverlay && (
-          <IoIosClose
-            size={22}
-            className="cursor-pointer text-red-300 hover:text-red-200"
-            title={`Remove ${props.meal.name}`}
-            onPointerDown={(event) => event.stopPropagation()}
-            onClick={(event) => {
-              event.stopPropagation();
-              props.onRemove?.();
-            }}
-          />
+          <PlanningDeleteButton label={`Remove ${props.meal.name}`} onEventDelete={() => props.onRemove?.()} />
         )}
       </div>
-      <p className="text-sm text-gray-400 font-bold break-words mt-1">
-        {props.meal.name}
+      <div className="mt-3 break-words"><PlanningItemHeading compact>{props.meal.name}</PlanningItemHeading></div>
+      <p className="text-sm leading-relaxed text-gray-500">
+        {formatNutrient(mealCalories(props.meal, props.quantityOf))} kcal &middot;{" "}
+        {formatNutrient(mealProtein(props.meal, props.quantityOf))} g
       </p>
-      <p className="text-xs text-gray-400">
-        {mealCalories(props.meal, props.quantityOf)} kcal &middot;{" "}
-        {mealProtein(props.meal, props.quantityOf)} g
+      <p className="text-sm leading-relaxed text-gray-500">
+        {mealTotals(props.meal).cost === null ? "Cost unknown" : `£${mealCost(props.meal, props.quantityOf).toFixed(2)}`} &middot;{" "}
+        {props.meal.tasteScore === null ? "Unrated" : `${props.meal.tasteScore}/10`}
       </p>
-      <p className="text-xs text-gray-400">
-        &pound;{mealCost(props.meal, props.quantityOf).toFixed(2)} &middot;{" "}
-        {props.meal.tasteScore}/10
-      </p>
+
     </Card>
   );
 }
 
 function SortableMealCard(props: {
-  day: WeekdayType;
+  id: string;
   meal: MealType;
   slot: string;
   quantityOf: (food: MealType["foods"][number]) => number;
   onRemove: () => void;
+  onEventRecipe: () => void;
+  onEventSelect: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id: cardId(props.day, props.meal.name) });
+    useSortable({ id: props.id });
 
   return (
     <div
@@ -157,6 +123,8 @@ function SortableMealCard(props: {
         slot={props.slot}
         quantityOf={props.quantityOf}
         onRemove={props.onRemove}
+        onEventRecipe={props.onEventRecipe}
+        onEventSelect={props.onEventSelect}
       />
     </div>
   );
@@ -171,7 +139,11 @@ function DayColumn(props: {
   quantityOf: (food: MealType["foods"][number]) => number;
   onSelectDay: () => void;
   onAddMeal: () => void;
-  onRemoveMeal: (mealName: string) => void;
+  onEventOpenDiary?: () => void;
+  onRemoveMeal: (index: number) => void;
+  cardId: (day: WeekdayType, meal: MealType) => string;
+  onEventRecipe: (meal: MealType) => void;
+  onEventSelect: (meal: MealType) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: props.day });
 
@@ -179,59 +151,46 @@ function DayColumn(props: {
   // `w-[200px]` alongside it loses and every column renders full width, leaving only the
   // first one on screen.
   return (
-    <div className="flex-1 min-w-[180px] flex">
+    <div className="flex-1 min-w-[270px] flex">
     <Card
-      className={`bg-white p-2 flex flex-col ${
+      className={`bg-white p-3 flex flex-col ${
         props.isCurrent ? "ring-2 ring-blue-400" : ""
       } ${isOver ? "bg-blue-50" : ""}`}
     >
       <div className="flex items-center justify-between">
-        <CiCirclePlus
-          size={24}
-          className="cursor-pointer hover:text-gray-600 text-gray-800 shrink-0"
-          title={`Add a meal to ${props.day}`}
-          onClick={props.onAddMeal}
-        />
-        <h2
-          className="text-base md:text-lg text-gray-800 font-bold cursor-pointer truncate mx-1"
-          onClick={props.onSelectDay}
-        >
-          {props.day}
-        </h2>
-        {props.isToday ? (
-          <span className="rounded-full px-2 py-1 text-xs font-semibold bg-blue-500 text-white shrink-0">
-            Today
-          </span>
-        ) : (
-          <span className="w-[1px] shrink-0" />
-        )}
+        <PlanningAddButton label={`Add a meal to ${props.day}`} onEventAdd={props.onAddMeal} />
+        <button type="button" className="mx-1 truncate font-bold text-gray-800 md:text-2xl" onClick={props.onSelectDay}>{props.day}{props.isToday && <span className="ml-1 text-xs font-normal text-blue-600">Today</span>}</button>
+        {props.onEventOpenDiary && <button type="button" aria-label={`Open ${props.day} in MyFitnessPal`} title={`Open ${props.day} in MyFitnessPal`} className="shrink-0 text-blue-500 hover:text-blue-600" onClick={props.onEventOpenDiary}><FaArrowUpRightFromSquare size={17} aria-hidden="true" /></button>}
       </div>
+
 
       {/* flex-1 keeps an empty day the same height as a full one, so every column stays
           a visible, full-size drop target rather than collapsing to a stub. */}
       <div
         ref={setNodeRef}
-        className="mt-2 flex-1 min-h-[140px] max-h-[420px] overflow-y-auto hidden-scrollbar"
+        className={`mt-4 h-[45vh] min-h-[300px] overflow-y-auto scrollbar-hide rounded-2xl p-3 ${isOver ? "bg-green-200" : "bg-green-100"}`}
       >
         <SortableContext
-          items={props.meals.map((meal) => cardId(props.day, meal.name))}
+          items={props.meals.map((meal) => props.cardId(props.day, meal))}
           strategy={verticalListSortingStrategy}
         >
           {props.meals.map((meal, index) => (
             <SortableMealCard
-              key={cardId(props.day, meal.name)}
-              day={props.day}
+              key={props.cardId(props.day, meal)}
+              id={props.cardId(props.day, meal)}
               meal={meal}
               slot={mealSlot(index)}
               quantityOf={props.quantityOf}
-              onRemove={() => props.onRemoveMeal(meal.name)}
+              onRemove={() => props.onRemoveMeal(index)}
+              onEventRecipe={() => props.onEventRecipe(meal)}
+              onEventSelect={() => props.onEventSelect(meal)}
             />
           ))}
         </SortableContext>
         {props.meals.length === 0 && (
           <div
             className={`h-full min-h-[140px] rounded-xl border-2 border-dashed flex items-center justify-center ${
-              isOver ? "border-blue-400 text-blue-400" : "border-gray-200 text-gray-400"
+              isOver ? "border-green-400 text-green-700" : "border-green-200 text-gray-500"
             }`}
           >
             <span className="text-xs">Drop a meal here</span>
@@ -241,12 +200,12 @@ function DayColumn(props: {
 
       <Card className="flex flex-col items-center justify-center mt-4 px-4 py-1 bg-gray-50 border border-gray-200 rounded-xl shadow">
         <span className="text-base md:text-lg font-semibold text-gray-500">
-          {Math.round(props.totals.calories)} kcal
+          {formatNutrient(props.totals.calories)} kcal
         </span>
         <span className="text-xs font-semibold text-gray-500">
-          {Math.round(props.totals.protein)} g &middot; &pound;
-          {props.totals.cost.toFixed(2)} &middot;{" "}
-          {props.totals.tasteScore.toFixed(1)}/10
+          {formatNutrient(props.totals.protein)} g &middot; &pound;
+          {props.totals.cost === null ? "unknown" : props.totals.cost.toFixed(2)} &middot;{" "}
+          {props.totals.tasteScore === null ? "Unrated" : `${props.totals.tasteScore.toFixed(1)}/10`}
         </span>
       </Card>
     </Card>
@@ -262,25 +221,41 @@ export default function WeekBoard(props: {
   quantityOf: (food: MealType["foods"][number]) => number;
   onSelectDay: (day: WeekdayType) => void;
   onAddMeal: (day: WeekdayType) => void;
-  onRemoveMeal: (day: WeekdayType, mealName: string) => void;
+  onRemoveMeal: (day: WeekdayType, index: number) => void;
   onChange: (meals: WeekPlanType) => void;
+  onEventRecipe?: (meal: MealType) => void;
+  onEventSelectMeal?: (day: WeekdayType, meal: MealType) => void;
+  onEventOpenDiary?: (day: WeekdayType) => void;
 }) {
   const [activeCard, setActiveCard] = React.useState<{
     meal: MealType;
     slot: string;
   } | null>(null);
 
+  // Each portion has a separate drag identity without changing the saved schema.
+  const identities = React.useRef(new WeakMap<MealType, string>());
+  const cardId = (day: WeekdayType, meal: MealType): string => {
+    let token = identities.current.get(meal);
+    if (!token) {
+      token = crypto.randomUUID();
+      identities.current.set(meal, token);
+    }
+    return `${day}::${token}`;
+  };
+
   // A small activation distance so a click on the remove icon is not read as a drag.
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    // Separate mouse and touch activation so a touch scroll does not start the
+    // pointer sensor before the long-press touch sensor can take control.
+    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
     useSensor(TouchSensor, {
       activationConstraint: { delay: 180, tolerance: 6 },
     })
   );
 
   const handleDragStart = (event: DragStartEvent) => {
-    const { day, mealName } = parseCardId(String(event.active.id));
-    const index = props.meals[day].findIndex((meal) => meal.name === mealName);
+    const { day } = parseCardId(String(event.active.id));
+    const index = props.meals[day].findIndex((meal) => cardId(day, meal) === String(event.active.id));
     if (index === -1) return;
     setActiveCard({ meal: props.meals[day][index], slot: mealSlot(index) });
   };
@@ -295,14 +270,14 @@ export default function WeekBoard(props: {
     const toDay = isColumnId(overId) ? overId : parseCardId(overId).day;
 
     const sourceMeals = props.meals[from.day];
-    const sourceIndex = sourceMeals.findIndex((meal) => meal.name === from.mealName);
+    const sourceIndex = sourceMeals.findIndex((meal) => cardId(from.day, meal) === String(active.id));
     if (sourceIndex === -1) return;
 
     if (from.day === toDay) {
       const targetIndex = isColumnId(overId)
         ? sourceMeals.length - 1
         : sourceMeals.findIndex(
-            (meal) => meal.name === parseCardId(overId).mealName
+            (meal) => cardId(toDay, meal) === overId
           );
       if (targetIndex === -1 || targetIndex === sourceIndex) return;
       props.onChange({
@@ -312,22 +287,12 @@ export default function WeekBoard(props: {
       return;
     }
 
-    // Meals are identified by name within a day, so the same meal cannot land twice on
-    // one day. Reject rather than silently dropping the move.
-    if (props.meals[toDay].some((meal) => meal.name === from.mealName)) {
-      toastFactory(
-        `${toDay} already has ${from.mealName}`,
-        MessageSeverity.WARNING
-      );
-      return;
-    }
-
-    const meal = sourceMeals[sourceIndex];
+    const meal = structuredClone(sourceMeals[sourceIndex]);
     const targetMeals = props.meals[toDay];
     const insertAt = isColumnId(overId)
       ? targetMeals.length
       : targetMeals.findIndex(
-          (item) => item.name === parseCardId(overId).mealName
+          (item) => cardId(toDay, item) === overId
         );
 
     props.onChange({
@@ -349,7 +314,7 @@ export default function WeekBoard(props: {
       onDragEnd={handleDragEnd}
       onDragCancel={() => setActiveCard(null)}
     >
-      <div className="w-full flex gap-3 overflow-x-auto hidden-scrollbar pb-2 items-stretch">
+      <div role="region" aria-label="Weekly diet board" tabIndex={0} className="w-full max-w-full min-w-0 flex gap-4 overflow-x-auto scrollbar-hide pb-4 items-stretch">
         {WEEKDAYS.map((day) => (
           <DayColumn
             key={day}
@@ -361,14 +326,18 @@ export default function WeekBoard(props: {
             quantityOf={props.quantityOf}
             onSelectDay={() => props.onSelectDay(day)}
             onAddMeal={() => props.onAddMeal(day)}
-            onRemoveMeal={(mealName) => props.onRemoveMeal(day, mealName)}
+            onEventOpenDiary={props.onEventOpenDiary ? () => props.onEventOpenDiary?.(day) : undefined}
+            onRemoveMeal={(index) => props.onRemoveMeal(day, index)}
+            cardId={cardId}
+            onEventRecipe={meal => props.onEventRecipe?.(meal)}
+            onEventSelect={meal => props.onEventSelectMeal?.(day, meal)}
           />
         ))}
       </div>
 
       <DragOverlay>
         {activeCard && (
-          <div className="w-[184px]">
+          <div className="w-[270px]">
             <MealCard
               meal={activeCard.meal}
               slot={activeCard.slot}

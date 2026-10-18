@@ -8,7 +8,9 @@
     "type-check": "tsc --noEmit",
     "build": "tsc && vite build",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "prototypes": "vite --config prototypes/vite.config.ts",
+    "prototypes:type-check": "tsc --noEmit -p prototypes/tsconfig.json"
   },
   "dependencies": {
     "@auth0/auth0-react": "^2.3.0",

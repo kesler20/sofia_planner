@@ -1,15 +1,14 @@
 import * as React from "react";
-import { Routes, Route } from "react-router-dom";
-import Foods from "./diet/Dishes";
+import { Routes, Route, Navigate } from "react-router-dom";
 import Diet from "./diet/Diet";
-import Meal from "./diet/Meal";
-import EditMeal from "./diet/EditMeal";
 import BudgetsPage from "./finance/BudgetsPage";
-import VoiceEmailReader from "./inbox/VoiceEmailReader";
-import TaskTriage from "./inbox/TaskTriage";
+import MonitoringPage from "./finance/MonitoringPage";
+import SpendingRankingsPage from "./finance/SpendingRankingsPage";
 import InvestmentPlannerPage from "./finance/InvestmentPlannerPage";
-import AnalyticsPage from "./analytics/AnalyticsPage";
-import HomePage from "./home/HomePage";
+import PersonalRecordsPage from "./health/PersonalRecordsPage";
+import BurnupPage from "./health/BurnupPage";
+import ControlChartsPage from "./health/ControlChartsPage";
+import DietAnalyticsPage from "./diet/DietAnalyticsPage";
 
 type PageMetaData = {
   name: string;
@@ -18,8 +17,8 @@ type PageMetaData = {
   shareComponent?: React.ComponentType;
 };
 
-export type ValidViews = "home" | "diet" | "finance" | "inbox" | "analytics";
-export const validViewsValues = ["home", "diet", "finance", "inbox", "analytics"];
+export type ValidViews = "diet" | "finance" | "health";
+export const validViewsValues = ["diet", "finance", "health"];
 
 export type Pages = {
   [K in ValidViews]: PageMetaData[];
@@ -29,14 +28,14 @@ export type Pages = {
  * a list containing the metadata of the pages, including { name, pageIcon and link, pageComponent }
  */
 export const pages: Pages = {
-  home: [
-    {
-      name: "Home",
-      link: "/home",
-      pageComponent: HomePage,
-    },
+  health: [
+    { name: "Gym Personal Records", link: "/health/records", pageComponent: PersonalRecordsPage },
+    { name: "Burnup", link: "/health/burnup", pageComponent: BurnupPage },
+    { name: "Control charts", link: "/health/control", pageComponent: ControlChartsPage },
   ],
   finance: [
+    { name: "Monitoring", link: "/finance/monitoring", pageComponent: MonitoringPage },
+    { name: "Spending rankings", link: "/finance/rankings", pageComponent: SpendingRankingsPage },
     {
       name: "Plan Investments",
       link: "/investments",
@@ -49,52 +48,27 @@ export const pages: Pages = {
     },
   ],
   diet: [
+    { name: "Monitoring", link: "/diet/monitoring", pageComponent: DietAnalyticsPage },
     {
       name: "Plan Diet",
       link: "/diet",
       pageComponent: Diet,
     },
-    {
-      name: "Edit Meal",
-      link: "/edit-meal",
-      pageComponent: EditMeal,
-    },
-    {
-      name: "Create Meals",
-      link: "/meal",
-      pageComponent: Meal,
-    },
-    {
-      name: "Edit Foods",
-      link: "/dishes",
-      pageComponent: Foods,
-    },
-  ],
-  inbox: [
-    {
-      name: "Voice Reader",
-      link: "/inbox",
-      pageComponent: VoiceEmailReader,
-    },
-    {
-      name: "Task Triage",
-      link: "/task-triage",
-      pageComponent: TaskTriage,
-    },
-  ],
-  analytics: [
-    {
-      name: "Analytics",
-      link: "/analytics",
-      pageComponent: AnalyticsPage,
-    },
+    { name: "Meal Rankings", link: "/diet/rankings", pageComponent: DietAnalyticsPage },
+    { name: "Calorie Calculator", link: "/diet/calculator", pageComponent: DietAnalyticsPage },
   ],
 };
 
 export default function Pages() {
   return (
     <Routes>
-      <Route index element={<HomePage />} />
+      <Route path="/diet/cheat-meals/*" element={<Navigate to="/diet" replace />} />
+      <Route path="/finance/forecasting/*" element={<Navigate to="/finance/monitoring" replace />} />
+      <Route path="/home/*" element={<Navigate to="/diet/monitoring" replace />} />
+      <Route index element={<Navigate to="/diet/monitoring" replace />} />
+      <Route path="/analytics/*" element={<Navigate to="/diet/monitoring" replace />} />
+      <Route path="/health/configuration" element={<Navigate to="/diet/monitoring" replace />} />
+      {["/edit-meal", "/meal", "/dishes"].map(path => <Route key={path} path={path} element={<Navigate to="/diet" replace />} />)}
       {Object.values(pages)
         .flat()
         .map((pageMetaData, index) => {
