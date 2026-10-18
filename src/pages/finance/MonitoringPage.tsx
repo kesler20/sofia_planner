@@ -1,3 +1,4 @@
+import { useAccount } from "../../auth/accountContext";
 import LoadingAnimation from "../../components/LoadingAnimation";
 import * as React from "react";
 import { Link } from "react-router-dom";
@@ -27,7 +28,7 @@ export default function MonitoringPage() {
   //   STATE VARIABLES      //
   //                        //
   // ====================== //
-  const user = localStorage.getItem("global/email") || "guest";
+  const user = useAccount();
   const [data, setData] = React.useState<MonitoringData | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [failed, setFailed] = React.useState(false);

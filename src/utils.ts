@@ -1,6 +1,7 @@
 import * as React from "react";
 import { NoSQLDbServiceResourceType } from "@lib/types";
-import axios from "axios";
+import axios, { AxiosError, AxiosHeaders } from "axios";
+import { resourceHeaders } from "./auth/resourceSession";
 import toastFactory, {
   MessageSeverity,
 } from "./components/notification/ToastMessages";
@@ -15,11 +16,18 @@ const dbUrl = import.meta.env.VITE_PROD_BACKEND_URL;
 
 const DB_ARRAY_KEY = "key";
 
+function resourceFailure(error: unknown): Error {
+  // Callers may log errors. Never carry bearer headers or resource bodies into them.
+  if (!axios.isAxiosError(error)) return new Error("Resource request failed");
+  return new AxiosError("Resource request failed", error.code, undefined, undefined,
+    error.response ? { status: error.response.status, statusText: "", data: undefined, headers: {}, config: { headers: new AxiosHeaders() } } : undefined);
+}
+
 const safeJsonParse = (value: string) => {
   try {
     return JSON.parse(value);
-  } catch (error) {
-    console.error("Failed to parse JSON value", error);
+  } catch {
+    console.error("Failed to parse resource JSON");
     return undefined;
   }
 };
@@ -84,13 +92,13 @@ const normalizeDbReadPayload = (data: unknown) => {
 // @see server.ts
 export const readResourceSnapshot = async (resourcePath: string, resourceName: string): Promise<Record<string, unknown> | null> => {
   try {
-    const response = await axios.get(`${dbUrl}/${resourcePath}/${resourceName}`);
+    const response = await axios.get(`${dbUrl}/${encodeURIComponent(resourcePath)}/${encodeURIComponent(resourceName)}`, { headers: await resourceHeaders(resourcePath) });
     const value: unknown = typeof response.data === "string" ? JSON.parse(response.data) : response.data;
     if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Invalid resource snapshot");
     return value as Record<string, unknown>;
   } catch (error) {
     if (axios.isAxiosError(error) && error.response?.status === 404) return null;
-    throw error;
+    throw resourceFailure(error);
   }
 };
 
@@ -103,12 +111,12 @@ export const compareAndSwapResourceInDb = async (
   const root = dbUrl.replace(/\/resources\/?$/, "");
   const normalize = (value: unknown) => Array.isArray(value) ? { key: value } : value;
   try {
-    const response = await axios.put(`${root}/v1/resources/${resourcePath}/${resourceName}`, { expected: normalize(expected), replacement: normalize(replacement) });
+    const response = await axios.put(`${root}/v1/resources/${encodeURIComponent(resourcePath)}/${encodeURIComponent(resourceName)}`, { expected: normalize(expected), replacement: normalize(replacement) }, { headers: await resourceHeaders(resourcePath) });
     if (response.data?.applied !== true) throw new Error("Resource save was not confirmed");
   } catch (error) {
     if (axios.isAxiosError(error) && error.response?.status === 409) throw new Error("This resource changed. Refresh before saving.");
     if (axios.isAxiosError(error) && error.response?.status === 404) throw new Error("Conditional saves are unavailable on this backend.");
-    throw error;
+    throw resourceFailure(error);
   }
 };
 
@@ -122,14 +130,14 @@ export const createResourceInDb = async <TResponse>(
     const response = await axios.post<
       NoSQLDbServiceResourceType,
       { data: TResponse }
-    >(`${dbUrl}/${resourcePath}`, {
+    >(`${dbUrl}/${encodeURIComponent(resourcePath)}`, {
       resourceName,
       resourceContent: payload,
-    });
+    }, { headers: await resourceHeaders(resourcePath) });
     const result = response.data;
     return { result, error: undefined };
   } catch (e: any) {
-    return { result: undefined, error: e };
+    return { result: undefined, error: resourceFailure(e) };
   }
 };
 
@@ -139,12 +147,13 @@ export const readResourceInDb = async <TResponse>(
 ) => {
   try {
     const response = await axios.get<unknown>(
-      `${dbUrl}/${resourcePath}/${resourceName}`
+      `${dbUrl}/${encodeURIComponent(resourcePath)}/${encodeURIComponent(resourceName)}`,
+      { headers: await resourceHeaders(resourcePath) }
     );
     const result = normalizeDbReadPayload(response.data) as TResponse;
     return { result, error: undefined };
   } catch (error: any) {
-    return { result: undefined, error };
+    return { result: undefined, error: resourceFailure(error) };
   }
 };
 
@@ -154,12 +163,13 @@ export const deleteResourceInDb = async <TResponse>(
 ) => {
   try {
     const response = await axios.delete<TResponse>(
-      `${dbUrl}/${resourcePath}/${resourceName}`
+      `${dbUrl}/${encodeURIComponent(resourcePath)}/${encodeURIComponent(resourceName)}`,
+      { headers: await resourceHeaders(resourcePath) }
     );
     const result = response.data;
     return { result, error: undefined };
   } catch (error: any) {
-    return { result: undefined, error };
+    return { result: undefined, error: resourceFailure(error) };
   }
 };
 
@@ -247,19 +257,22 @@ export function useKeyboardShortcuts(
  * @param {*} resourceName
  * @returns
  */
+const accountCachePrefix = (account: string) => `sofia/account/${encodeURIComponent(account)}/`;
+
+export function clearAccountCache(account: string): void {
+  const prefix = accountCachePrefix(account);
+  for (const key of Object.keys(localStorage)) if (key.startsWith(prefix)) localStorage.removeItem(key);
+}
+
 export const useCachedValue = <T>(
   username: string,
   defaultValue: T,
   key: string
 ): [T, React.Dispatch<React.SetStateAction<T>>] => {
-  const validKey = `${username}_${key}`;
+  const validKey = `${accountCachePrefix(username)}${encodeURIComponent(key)}`;
 
   const [value, setValue] = React.useState(() => {
     const storedState = getResourceFromCache(validKey);
-    console.log(
-      `global state - ${validKey}`,
-      storedState === undefined ? defaultValue : (storedState as T)
-    );
     return storedState === undefined ? defaultValue : (storedState as T);
   });
   React.useEffect(() => {

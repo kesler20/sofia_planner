@@ -569,9 +569,11 @@ Rounded floating tabs were considered, but hide desktop destinations behind a
 menu. A single launcher keeps the header smaller but hides domain navigation.
 The desktop sidebar uses the selected 264px soft mint glass treatment with
 larger labels and a pale green gradient inspired by the supplied reference.
-The wider 288px, stronger mint alternative was declined. The mobile dock and
-page sheet match the Finance copy popup's 30% white surface, 12px blur, gray
-border and shadow. Inherited fonts preserve the app's existing theme. The original gradient
+The wider 288px, stronger mint alternative was declined. The mobile dock shares
+the sidebar's mint gradient and border to keep navigation surfaces consistent.
+The page sheet matches the Finance copy popup's 30% white surface, 12px blur,
+gray border and shadow. Top spacing belongs to the pages because adding shell
+padding duplicates the gap below the header. Inherited fonts preserve the app's existing theme. The original gradient
 sofiaPlanner logo and username greeting with sparkles stay at the top.
 
 
@@ -603,3 +605,37 @@ scope. They share the application theme and components, use synthetic data and
 block live HTTP. Only selected components are promoted into production pages.
 Retired screens and uniquely authored candidate work are retained outside the
 production compilation scope, avoiding both accidental deletion and dead app code.
+
+## Authenticated account boundaries agreed 18 October 2026
+
+The resource API validates Auth0 access tokens and resolves account namespaces from
+issuer and subject. The browser waits for the resolved account, attaches bearer
+tokens to resource requests and keys pages and caches to that account. Caller-supplied
+email prefixes were rejected as authorization because another caller can choose them.
+Explicit server-side bindings preserve existing namespaces without automatically
+linking equal emails across providers. Provider linking requires deliberate ownership
+verification rather than email equivalence.
+
+OAuth callbacks use the application base for the GitHub Pages deployment and localhost
+for local development. Return destinations stay inside the hash router. Memory token
+storage and an explicit retry state avoid reliance on an existing browser cache or
+an endless redirect loop. Tenant allowlists and API audience must be verified before
+coordinated rollout. A native browser-control failure does not change OAuth protections.
+
+
+## Public demo and owner-only hosting agreed 18 October 2026
+
+The public website and personal app share a static deployment but use separate
+roots. Demo reuses production pages with a local synthetic resource transport.
+Its navigation preference is independent of authentication and never grants
+backend access. Shared demo credentials were rejected because a browser-local
+copy avoids shared mutable data and eliminates an unnecessary login.
+
+Personal access retains Google sign-in and RS256 API tokens. Exactly one reviewed
+subject binding owns each deployment. Unknown subjects are rejected rather than
+receiving new accounts. The backend package lives in the application repository
+with an independent runtime environment and build. Direct owner subject and account
+topic settings replace a JSON identity mapping to make single-owner configuration
+explicit. Prototypes stay in a Git-ignored local folder rather than being published.
+Contributors clone and host
+independent instances instead of joining the maintainer's personal deployment.

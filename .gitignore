@@ -27,3 +27,6 @@ build
 *.sw?
 sofia_diet-env
 .dev_logs
+
+# Local UI experiments and verification harnesses
+/prototypes/

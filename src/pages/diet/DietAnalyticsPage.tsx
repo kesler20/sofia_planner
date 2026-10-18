@@ -1,3 +1,4 @@
+import { useAccount } from "../../auth/accountContext";
 import LoadingAnimation from "../../components/LoadingAnimation";
 import * as React from "react";
 import { useLocation } from "react-router-dom";
@@ -27,7 +28,7 @@ export default function DietAnalyticsPage(props: { loadData?: typeof loadDietDat
   //                        //
   // ====================== //
   const page = useLocation().pathname.split("/").pop();
-  const user = localStorage.getItem("global/email") || "guest";
+  const user = useAccount();
   const [data, setData] = React.useState<DietData | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [today, setToday] = React.useState(props.currentDate ?? londonToday());

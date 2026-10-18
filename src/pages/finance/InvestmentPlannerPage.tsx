@@ -1,3 +1,4 @@
+import { useAccount } from "../../auth/accountContext";
 import { PlanningCard as Card } from "../../components/planning/PlanningComponents";
 import * as React from "react";
 import {
@@ -615,7 +616,7 @@ export default function InvestmentPlannerPage() {
   //                        //
   // ====================== //
 
-  const email = localStorage.getItem("global/email") || "guest";
+  const email = useAccount();
   const [fixedInvestmentArray, setFixedInvestmentArray, isFixedInvestmentLoading, fixedInvestmentError] =
     useStoredValue<number[]>(email, [500], "monthly_fixed_investment", undefined, fixedInvestmentSchema.parse);
   const fixedInvestment = fixedInvestmentArray[0] ?? 500;

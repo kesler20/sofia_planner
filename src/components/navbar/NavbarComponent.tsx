@@ -3,6 +3,7 @@ import { type ValidViews } from "../../pages/Pages";
 import { useAuth0 } from "@auth0/auth0-react";
 import * as React from "react";
 import { ToastContainer } from "react-toastify";
+import { entryUrl, personalPreferenceKey } from "../../entry/appMode";
 import PlannerNavigation from "./PlannerNavigation";
 
 // ============================================================ //
@@ -21,7 +22,7 @@ export default function NavbarComponent() {
   //                        //
   // ====================== //
   const [openDomain, setOpenDomain] = React.useState<ValidViews | null>(null);
-  const { logout, user, isAuthenticated, isLoading, loginWithRedirect, error } = useAuth0();
+  const { logout, user } = useAuth0();
   const location = useLocation();
   const shared = location.pathname.includes("/share/");
   // ====================== //
@@ -35,9 +36,6 @@ export default function NavbarComponent() {
   //   SIDE EFFECTS         //
   //                        //
   // ====================== //
-  React.useEffect(() => {
-    if (isAuthenticated && user) localStorage.setItem("global/email", user.email?.replace("@", "_at_") || "guest");
-  }, [isAuthenticated, user]);
   React.useEffect(() => { setOpenDomain(null); }, [location.pathname]);
   React.useEffect(() => {
     const desktop = window.matchMedia("(min-width: 900px)");
@@ -45,16 +43,6 @@ export default function NavbarComponent() {
     desktop.addEventListener("change", handleEventResize);
     return () => desktop.removeEventListener("change", handleEventResize);
   }, []);
-  React.useEffect(() => {
-    if (isLoading || isAuthenticated || shared) return;
-    if (error) {
-      // Preserve the retry delay for transient silent-token failures.
-      console.log("Auth0 error, delaying redirect to login:", error);
-      const retryTimeoutId = window.setTimeout(() => { void loginWithRedirect(); }, 3000);
-      return () => window.clearTimeout(retryTimeoutId);
-    }
-    void loginWithRedirect();
-  }, [isAuthenticated, isLoading, loginWithRedirect, error, shared]);
   // ====================== //
   //                        //
   //   UI EVENT HANDLERS    //
@@ -65,9 +53,8 @@ export default function NavbarComponent() {
   function handleEventClose() { setOpenDomain(null); }
   // ------------------------------------------------------ Account
   function handleEventLogout() {
-    localStorage.clear();
-    void logout({ logoutParams: { returnTo: window.location.origin } });
-    window.location.reload();
+    localStorage.removeItem(personalPreferenceKey);
+    void logout({ logoutParams: { returnTo: new URL(import.meta.env.BASE_URL, window.location.origin).href } });
   }
   // ====================== //
   //                        //
@@ -80,5 +67,5 @@ export default function NavbarComponent() {
   //   UI COMPONENTS        //
   //                        //
   // ====================== //
-  return <><ToastContainer position="top-right"/><PlannerNavigation openDomain={openDomain} accountName={user?.name} shared={shared} onEventDomain={handleEventDomain} onEventClose={handleEventClose} onEventLogout={handleEventLogout}/></>;
+  return <><div className="demo-toolbar"><strong>Personal planner</strong><a href={entryUrl("demo")}>Try demo</a><a href={entryUrl("landing")}>About Sofia</a></div><ToastContainer position="top-right"/><PlannerNavigation openDomain={openDomain} accountName={user?.name} shared={shared} onEventDomain={handleEventDomain} onEventClose={handleEventClose} onEventLogout={handleEventLogout}/></>;
 }

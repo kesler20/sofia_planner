@@ -1,3 +1,4 @@
+import { useAccount } from "../../auth/accountContext";
 import { SelectedMealsMenu } from "./components/SelectedMealsMenu";
 import { CheatMealForm } from "./components/CheatMealForm";
 import type { CheatMealInput } from "./cheatMealsData";
@@ -43,7 +44,7 @@ const getFoodQuantity = (food: MealType["foods"][number]) => food.quantity ?? 1;
 const emptyCheatMeal = (): CheatMealInput => ({ name: "", calories: null, protein: null, carbs: null, fat: null, cost: null, amount: null, vendor: null });
 
 export default function Diet() {
-  const email = localStorage.getItem("global/email") || "guest";
+  const email = useAccount();
   const [diets, setDiets] = React.useState<DietType[]>(defaultDiets);
   const [dietsLoading, setDietsLoading] = React.useState(true);
   const [dietsReady, setDietsReady] = React.useState(false);

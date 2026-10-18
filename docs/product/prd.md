@@ -408,8 +408,9 @@ reserves space below content and respects the device's bottom safe area.
 
 Navigation preserves the existing fonts, gradient sofiaPlanner logo and username
 greeting with sparkles. The desktop sidebar is 264px wide with a soft mint
-glass tint and larger labels. The mobile dock and page list use the same
-translucent white treatment as the Finance copy popup.
+glass tint and larger labels. The mobile dock shares the sidebar's mint glass
+tint. The page list uses the translucent white Finance copy popup treatment.
+Pages provide their own top spacing below the header.
 
 Sidebar and mobile dock section icons use food, money and strength emojis. Save diet uses the
 existing green-to-cyan primary gradient button with a text label. Its saving
@@ -437,3 +438,28 @@ Unavailable or malformed saved data displays a failure state and leaves the
 saved resource untouched. Viewing a saved plan does not save it again.
 Investment allocations use confirmed monthly budget values and never substitute
 illustrative balances when that budget is unavailable.
+
+## Account access
+
+Users sign in through the configured Auth0 application, including Google sign-in.
+A fresh browser or supported device returns to the application base and then the
+requested local page. Failed sign-in offers a deliberate retry without redirect loops.
+
+The configured owner sees their saved plans, analytics and drafts. Other signed-in
+identities are denied access. Pages wait for authorization before loading data.
+Pending operations cannot cross a session change, and caches remain scoped to the
+authorized identity. The owner setting preserves the existing resource namespace.
+
+
+## Public website and personal access
+
+The public Sofia website offers a browser-local interactive demo and Google
+personal sign-in. Demo uses synthetic resources with independent browser storage,
+a reset action and sample analytics. It cannot read or write private backend data.
+The personal deployment accepts only its configured owner's identity. Other users
+clone the open-source repository and configure their own hosted version.
+
+A successful personal sign-in remembers that browser's preference. Later visits
+skip the website, while authentication remains required when the session expires.
+Direct demo links override the preference. About Sofia opens the website explicitly,
+and signing out clears the personal preference. Both modes reuse the same pages.

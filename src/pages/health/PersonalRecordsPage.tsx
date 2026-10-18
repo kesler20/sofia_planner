@@ -1,3 +1,4 @@
+import { useAccount } from "../../auth/accountContext";
 import * as React from "react";
 import { AnalyticsCard, AnalyticsSelect } from "../../components/analytics/AnalyticsControls";
 import { BodyCards, HealthChart, HealthLayout, WeekControls, percentage } from "./components/HealthComponents";
@@ -19,7 +20,7 @@ export default function PersonalRecordsPage() {
   //   STATE VARIABLES      //
   //                        //
   // ====================== //
-  const user = localStorage.getItem("global/email") || "guest";
+  const user = useAccount();
   const [data, setData] = React.useState<HealthData | null>(null);
   const [selection, setSelection] = React.useState<Selection>({ period: "week", date: londonToday(), offset: 0, entityId: "" });
   // ====================== //

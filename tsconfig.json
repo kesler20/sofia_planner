@@ -120,5 +120,5 @@
     "src/**/*.jsx",
     "src/**/*.d.ts",
     "src/**/*.d.tsx"
-, "server/server.ts"  ]
+  ]
 }

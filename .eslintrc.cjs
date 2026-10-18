@@ -19,5 +19,5 @@ module.exports = {
     "react-hooks/exhaustive-deps": "off",
     "react-refresh/only-export-components": "off",
   },
-  ignorePatterns: ["build", "dist", "node_modules"],
+  ignorePatterns: ["build", "dist", "node_modules", "backend"],
 };

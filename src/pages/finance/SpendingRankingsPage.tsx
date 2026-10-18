@@ -1,3 +1,4 @@
+import { useAccount } from "../../auth/accountContext";
 import LoadingAnimation from "../../components/LoadingAnimation";
 import * as React from "react";
 import IOSSwitch from "../../components/switch/IOSSwitch";
@@ -29,7 +30,7 @@ export default function SpendingRankingsPage() {
   //   STATE VARIABLES      //
   //                        //
   // ====================== //
-  const user = localStorage.getItem("global/email") || "guest";
+  const user = useAccount();
   const [data, setData] = React.useState<SpendingRankings | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [failed, setFailed] = React.useState(false);

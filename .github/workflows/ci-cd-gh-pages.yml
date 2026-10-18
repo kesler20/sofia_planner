@@ -66,6 +66,7 @@ jobs:
         run: pnpm run build
         env:
           VITE_PROD_BACKEND_URL: https://sofia-headless-backend.fly.dev/resources
+          VITE_AUTH0_AUDIENCE: ${{ vars.AUTH0_AUDIENCE }}
 
       - name: Create SPA fallback (404.html)
         run: cp build/index.html build/404.html

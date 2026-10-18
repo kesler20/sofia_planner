@@ -1,8 +1,0 @@
-import * as React from "react";
-import { AnalyticsCard, AnalyticsSelect } from "../../src/components/analytics/AnalyticsControls";
-import { NumberField, labelOf } from "../../src/pages/diet/components/DietAnalyticsComponents";
-import { componentKeys } from "../../src/pages/diet/dietAnalyticsTypes";
-import type { DietConfig, ComponentKey } from "../../src/pages/diet/dietAnalyticsTypes";
-export function DietConfigurationFields(props: { config: DietConfig; onEventRule: (key: ComponentKey, patch: Partial<DietConfig["rules"][ComponentKey]>) => void; onEventCorrection: (value: number) => void }): React.ReactElement {
-  return <><AnalyticsCard><h2 className="mb-5 text-lg font-semibold">Meal loss function</h2><div className="space-y-4">{componentKeys.map(key => <div key={key} className="grid items-end gap-3 sm:grid-cols-[1fr_150px_190px]"><span className="py-2 text-sm font-semibold">{labelOf(key)}</span><NumberField label={`${labelOf(key)} weight`} value={props.config.rules[key].weight} min={0} step={.1} onEventChange={weight => props.onEventRule(key, { weight })}/><AnalyticsSelect label={`${labelOf(key)} direction`} value={props.config.rules[key].direction} options={[{ id: "minimise", name: "Minimise" }, { id: "maximise", name: "Maximise" }]} onEventChange={direction => props.onEventRule(key, { direction: direction as "minimise" | "maximise" })}/></div>)}</div></AnalyticsCard><AnalyticsCard><h2 className="mb-4 text-lg font-semibold">Calorie calibration</h2><div className="max-w-sm"><NumberField label="Daily expenditure correction (kcal)" value={props.config.correction} step={10} onEventChange={props.onEventCorrection}/></div></AnalyticsCard></>;
-}

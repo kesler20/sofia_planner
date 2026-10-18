@@ -1,3 +1,4 @@
+import { useAccount } from "../../auth/accountContext";
 import { validateFinances, type CategoryType, type Category, type Months, type Finances } from "./financeBudgetTypes";
 import { BudgetCategory, type BudgetEditDraft } from "./components/BudgetCategory";
 import { PlanningCard as Card, PlanningHeading as Header, PlanningToolbarButton } from "../../components/planning/PlanningComponents";
@@ -6,7 +7,7 @@ import * as React from "react";
 import { CiCirclePlus } from "react-icons/ci";
 import { FaTrashAlt } from "react-icons/fa";
 import { MdContentPaste } from "react-icons/md";
-import { useCachedValue, useStoredValue } from "../../utils";
+import { clearAccountCache, useCachedValue, useStoredValue } from "../../utils";
 import toastFactory, {
   MessageSeverity,
 } from "../../components/notification/ToastMessages";
@@ -122,6 +123,7 @@ function TotalValueCard(props: { value: number; text: string }) {
 }
 
 function MonthlyActionButtons(props: {
+  onEventClearCache: () => void;
   pasteSelectedCategoriesFromClipboard: () => void;
   exportMonthlyBalances: () => void;
   importMonthlyBalances: (event: React.ChangeEvent<HTMLInputElement>) => void;
@@ -197,8 +199,7 @@ function MonthlyActionButtons(props: {
         <MenuItem
           onClick={() => {
             setIsDropdownOpen(false);
-            localStorage.clear();
-            window.location.reload();
+            props.onEventClearCache();
           }}
         >
           <FaTrashAlt size={16} className="inline" />
@@ -238,6 +239,7 @@ function MonthlyActionButtons(props: {
 }
 
 function Navbar(props: {
+  onEventClearCache: () => void;
   currentMonth: Months;
   updateCurrentMonth: (event: SelectChangeEvent<Months>) => void;
   pasteSelectedCategoriesFromClipboard: () => void;
@@ -264,6 +266,7 @@ function Navbar(props: {
         </Select>
         {/* Actions to apply to selected categories and monthly balances  */}
         <MonthlyActionButtons
+          onEventClearCache={props.onEventClearCache}
           pasteSelectedCategoriesFromClipboard={
             props.pasteSelectedCategoriesFromClipboard
           }
@@ -630,7 +633,7 @@ export default function BudgetsPage() {
   //                        //
   // =======================//
 
-  const email = localStorage.getItem("global/email") || "guest";
+  const email = useAccount();
   const [currentMonth, setCurrentMonth] = useCachedValue<Months>(
     email,
     "January",
@@ -811,6 +814,11 @@ export default function BudgetsPage() {
     toastFactory("Exported monthly balances!", MessageSeverity.INFO);
   };
 
+  function handleEventClearCache() {
+    try { clearAccountCache(email); window.location.reload(); }
+    catch { toastFactory("Unable to clear this account's cache", MessageSeverity.ERROR); }
+  }
+
   // Import monthlyBalance from JSON file
   const importMonthlyBalances = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -855,6 +863,7 @@ export default function BudgetsPage() {
       )}
       {/* Top Navbar */}
       <Navbar
+        onEventClearCache={handleEventClearCache}
         currentMonth={currentMonth}
         updateCurrentMonth={updateCurrentMonth}
         pasteSelectedCategoriesFromClipboard={pasteSelectedCategoriesFromClipboard}
