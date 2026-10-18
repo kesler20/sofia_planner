@@ -463,3 +463,14 @@ A successful personal sign-in remembers that browser's preference. Later visits
 skip the website, while authentication remains required when the session expires.
 Direct demo links override the preference. About Sofia opens the website explicitly,
 and signing out clears the personal preference. Both modes reuse the same pages.
+
+
+The public website uses a centred teal-violet heading and a two-page white feature
+card with a central seam, tilted gradient backing, yellow circle and a pale purple
+six-circle motif. Feature buttons beneath it switch meal planning, spending insights
+and health progress previews. Right-facing chevrons accompany the gradient actions.
+The Diet, Finance and Health tagline is omitted from the hero.
+
+The top account navbar provides compact, accessible Demo and Website icon actions
+beside sign-out. Demo mode offers personal sign-in in the same area. Its sample-data
+notice and reset action remain available without a separate navigation toolbar.

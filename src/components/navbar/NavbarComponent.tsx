@@ -51,6 +51,8 @@ export default function NavbarComponent() {
   // ------------------------------------------------------ Navigation
   function handleEventDomain(domain: ValidViews) { setOpenDomain(domain); }
   function handleEventClose() { setOpenDomain(null); }
+  function handleEventDemo() { window.location.assign(entryUrl("demo")); }
+  function handleEventLanding() { window.location.assign(entryUrl("landing")); }
   // ------------------------------------------------------ Account
   function handleEventLogout() {
     localStorage.removeItem(personalPreferenceKey);
@@ -67,5 +69,5 @@ export default function NavbarComponent() {
   //   UI COMPONENTS        //
   //                        //
   // ====================== //
-  return <><div className="demo-toolbar"><strong>Personal planner</strong><a href={entryUrl("demo")}>Try demo</a><a href={entryUrl("landing")}>About Sofia</a></div><ToastContainer position="top-right"/><PlannerNavigation openDomain={openDomain} accountName={user?.name} shared={shared} onEventDomain={handleEventDomain} onEventClose={handleEventClose} onEventLogout={handleEventLogout}/></>;
+  return <><ToastContainer position="top-right"/><PlannerNavigation openDomain={openDomain} accountName={user?.name} shared={shared} onEventDomain={handleEventDomain} onEventClose={handleEventClose} onEventLogout={handleEventLogout} onEventDemo={handleEventDemo} onEventLanding={handleEventLanding}/></>;
 }

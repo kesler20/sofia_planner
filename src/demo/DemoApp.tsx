@@ -38,6 +38,11 @@ export default function DemoApp() {
   //   UI EVENT HANDLERS
   //                        //
   // ====================== //
+  function handleEventDomain(value: ValidViews) { setOpenDomain(value); }
+  function handleEventClose() { setOpenDomain(null); }
+  function handleEventLanding() { window.location.assign(entryUrl("landing")); }
+  function handleEventPersonal() { window.location.assign(entryUrl("personal")); }
+  function handleEventDemo() { /* Already viewing the browser-local demo. */ }
   function handleEventReset() {
     if (!window.confirm("Reset this browser’s demo changes?")) return;
     resetDemo(); clearAccountCache(demoAccount); window.location.reload();
@@ -55,8 +60,8 @@ export default function DemoApp() {
   if (!ready) return <p className="p-6" role="status">Preparing sample data…</p>;
   return <PlannerTheme><HashRouter><AccountContext.Provider value={demoAccount}>
     <ToastContainer position="top-right" />
-    <div className="demo-toolbar"><strong>Demo · sample data</strong><span>Changes stay in this browser. Analytics show sample results.</span><button type="button" onClick={handleEventReset}>Reset demo</button><a href={entryUrl("personal")}>Personal sign-in</a><a href={entryUrl("landing")}>About Sofia</a></div>
-    <PlannerNavigation accountName="Demo" openDomain={openDomain} onEventDomain={setOpenDomain} onEventClose={() => setOpenDomain(null)} onEventLogout={() => window.location.assign(entryUrl("landing"))} />
+    <PlannerNavigation accountName="Demo" isDemo openDomain={openDomain} onEventDomain={handleEventDomain} onEventClose={handleEventClose} onEventDemo={handleEventDemo} onEventLanding={handleEventLanding} onEventLogout={handleEventPersonal} />
+    <div className="sofia-demo-status"><strong>Demo · sample data</strong><span>Changes stay in this browser. Analytics show sample results.</span><button type="button" onClick={handleEventReset}>Reset demo</button></div>
     <main id="main-content" tabIndex={-1} className="sofia-page-content"><Pages /></main>
   </AccountContext.Provider></HashRouter></PlannerTheme>;
 }

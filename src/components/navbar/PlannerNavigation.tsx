@@ -1,6 +1,6 @@
 import { NavLink, useLocation } from "react-router-dom";
 import { Dialog } from "@mui/material";
-import { X, ArrowUpRight } from "lucide-react";
+import { X, ArrowUpRight, Home, Play, LogIn } from "lucide-react";
 import { IoMdLogOut } from "react-icons/io";
 import { pages, type ValidViews } from "../../pages/Pages";
 import "./navigation.css";
@@ -24,6 +24,9 @@ export default function PlannerNavigation(props: {
   openDomain: ValidViews | null;
   accountName?: string;
   shared?: boolean;
+  isDemo?: boolean;
+  onEventDemo?: () => void;
+  onEventLanding?: () => void;
   onEventDomain: (domain: ValidViews) => void;
   onEventClose: () => void;
   onEventLogout: () => void;
@@ -32,7 +35,7 @@ export default function PlannerNavigation(props: {
   const activeDomain = domains.find(domain => pages[domain.id].some(page => page.link === location.pathname))?.id;
   return <>
     {/* Header and account */}
-    <header className="sofia-app-header"><NavLink to="/diet/monitoring" className="sofia-wordmark" aria-label="Sofia Planner"><span className="text-[30px] font-bold site-title">sofiaPlanner</span></NavLink>{!props.shared && <div className="sofia-account"><span className="sofia-account-name text-gray-400">Hi {props.accountName} ✨</span><button onClick={props.onEventLogout} aria-label="Log out" title="Log out"><IoMdLogOut size={20}/></button></div>}</header>
+    <header className="sofia-app-header"><NavLink to="/diet/monitoring" className="sofia-wordmark" aria-label="Sofia Planner"><span className="text-[30px] font-bold site-title">sofiaPlanner</span></NavLink>{!props.shared && <div className="sofia-account"><span className="sofia-account-name text-gray-400">Hi {props.accountName} ✨</span>{props.onEventDemo && <button type="button" onClick={props.onEventDemo} disabled={props.isDemo} aria-label="Open demo" title="Open demo"><Play size={17} aria-hidden="true"/></button>}{props.onEventLanding && <button type="button" onClick={props.onEventLanding} aria-label="Open landing page" title="Website"><Home size={17} aria-hidden="true"/></button>}<button type="button" onClick={props.onEventLogout} aria-label={props.isDemo ? "Personal sign-in" : "Log out"} title={props.isDemo ? "Personal sign-in" : "Log out"}>{props.isDemo ? <LogIn size={20} aria-hidden="true"/> : <IoMdLogOut size={20} aria-hidden="true"/>}</button></div>}</header>
     {!props.shared && <>
       {/* Desktop page rail */}
       <nav className="sofia-sidebar" aria-label="All pages">{domains.map(domain => <section key={domain.id}><h2><span aria-hidden="true" className="text-lg">{domain.emoji}</span>{domain.name}</h2>{pages[domain.id].map(page => <NavLink end key={page.link} to={page.link}>{page.name}</NavLink>)}</section>)}</nav>

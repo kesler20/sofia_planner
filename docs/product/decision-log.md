@@ -639,3 +639,17 @@ topic settings replace a JSON identity mapping to make single-owner configuratio
 explicit. Prototypes stay in a Git-ignored local folder rather than being published.
 Contributors clone and host
 independent instances instead of joining the maintainer's personal deployment.
+
+
+## Landing A and Navbar B agreed 18 October 2026
+
+The selected public website uses the reference-led centred hero and open-book card.
+A tilted gradient backing, yellow circle and lighter purple circular motif retain
+the project's visual character. Feature selection changes the sample content in
+both pages and its demo destination. The proposed domain tagline was removed.
+
+Compact icon actions keep Demo and Website alongside sign-out in the existing
+header. Separate navigation toolbars were rejected to keep navigation in one place.
+Labels remain available through accessible names and tooltips, and the demo's
+sample-data notice retains its reset control. The local prototype imports the
+promoted book component rather than maintaining another implementation.

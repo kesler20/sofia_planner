@@ -1,8 +1,54 @@
 # Sofia Planner
 
-[Open Sofia Planner](https://kesler20.github.io/sofia_planner/).
+![Sofia Planner landing page](docs/screenshots/landing-implemented.png)
 
 Plan meals, budgets and investments, and explore Diet, Finance and Health analytics.
+
+## Finance
+
+Monitoring compares observed expense totals with dated targets and shows budget
+burndown, burn rates and merchant composition. Rankings combine horizontal spending
+bars with category or merchant composition. Select a category and use Merchants to
+replace the single chart pair with its merchant breakdown.
+
+![Finance Monitoring with synthetic data](docs/screenshots/finance-monitoring.jpg)
+
+![Finance spending rankings with synthetic data](docs/screenshots/finance-rankings.jpg)
+
+## Diet
+
+Monitoring shows the selected day's energy balance and weekly allowance. Plan Diet
+uses the weekly meal board. Meal Rankings compares saved or consumed meals, and the
+Calorie Calculator supports an unsaved body-fat scenario.
+
+![Diet Monitoring with synthetic data](docs/screenshots/diet-monitoring.jpg)
+
+![Plan Diet with synthetic data](docs/screenshots/plan-diet.jpg)
+
+![Meal Rankings with synthetic data](docs/screenshots/meal-rankings.jpg)
+
+![Calorie Calculator with synthetic data](docs/screenshots/calorie-calculator.jpg)
+
+## Health
+
+Personal Records shows eligible lift history. Burnup compares accumulated activity
+with a target. Control charts compare weekly values with saved limits.
+
+![Personal Records with synthetic data](docs/screenshots/health-records.jpg)
+
+![Health Burnup with synthetic data](docs/screenshots/health-burnup.jpg)
+
+![Health Control charts with synthetic data](docs/screenshots/health-control.jpg)
+
+All current screenshots above show synthetic demonstration data. Earlier documentation
+images are preserved in `docs/screenshots/legacy/`.
+
+## Links
+
+- [Open Sofia Planner](https://kesler20.github.io/sofia_planner/)
+- [Try the demo](https://kesler20.github.io/sofia_planner/?mode=demo)
+- [Personal sign-in](https://kesler20.github.io/sofia_planner/?mode=personal)
+- [Authentication design](docs/authentication.md)
 
 ## Try Sofia
 
@@ -14,8 +60,8 @@ edits. Demo requires no account and never connects to the personal resource API.
 Personal sign-in uses Google and is restricted to the configured owner. After the
 first successful sign-in, that browser remembers the choice and skips the website
 on subsequent visits. Google can still require authentication when a session
-expires. Try demo inside the planner always opens demo, regardless of the remembered
-choice. About Sofia opens the website. Signing out clears the personal preference.
+expires. The Demo icon in the account navbar always opens demo, regardless of the
+remembered choice. The Website icon in the account navbar opens the website. Signing out clears the personal preference.
 
 Direct links append `?mode=demo`, `?mode=personal` or `?mode=landing` before the hash
 route. Bookmarks can open either app directly. Private browsing starts without the
@@ -97,42 +143,3 @@ harnesses. It is excluded from commits, pushes and deployment artifacts. Promote
 approved code into maintained source. The public demo is maintained application
 code and is included in deployments. Documentation screenshots live in
 `docs/screenshots/`.
-
-## Finance
-
-Monitoring compares observed expense totals with dated targets and shows budget
-burndown, burn rates and merchant composition. Rankings combine horizontal spending
-bars with category or merchant composition. Select a category and use Merchants to
-replace the single chart pair with its merchant breakdown.
-
-![Finance Monitoring with synthetic data](docs/screenshots/finance-monitoring.jpg)
-
-![Finance spending rankings with synthetic data](docs/screenshots/finance-rankings.jpg)
-
-## Diet
-
-Monitoring shows the selected day's energy balance and weekly allowance. Plan Diet
-uses the weekly meal board. Meal Rankings compares saved or consumed meals, and the
-Calorie Calculator supports an unsaved body-fat scenario.
-
-![Diet Monitoring with synthetic data](docs/screenshots/diet-monitoring.jpg)
-
-![Plan Diet with synthetic data](docs/screenshots/plan-diet.jpg)
-
-![Meal Rankings with synthetic data](docs/screenshots/meal-rankings.jpg)
-
-![Calorie Calculator with synthetic data](docs/screenshots/calorie-calculator.jpg)
-
-## Health
-
-Personal Records shows eligible lift history. Burnup compares accumulated activity
-with a target. Control charts compare weekly values with saved limits.
-
-![Personal Records with synthetic data](docs/screenshots/health-records.jpg)
-
-![Health Burnup with synthetic data](docs/screenshots/health-burnup.jpg)
-
-![Health Control charts with synthetic data](docs/screenshots/health-control.jpg)
-
-All current screenshots above show synthetic demonstration data. Earlier documentation
-images are preserved in `docs/screenshots/legacy/`.

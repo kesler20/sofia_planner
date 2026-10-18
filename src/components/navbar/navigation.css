@@ -1,14 +1,14 @@
 .sofia-app-header {
   height: 76px;
   display: grid;
-  grid-template-columns: 276px 1fr auto;
+  grid-template-columns: 1fr auto;
   align-items: center;
   padding: 0 30px;
   background: transparent;
   position: relative;
   z-index: 30;
 }
-.sofia-wordmark { grid-column: 2; justify-self: center; text-decoration: none; }
+.sofia-wordmark { grid-column: 1; justify-self: start; text-decoration: none; }
 .sofia-account { display: flex; align-items: center; gap: 8px; }
 .sofia-account-name { font-size: 14px; }
 .sofia-account button, .sofia-sheet-heading button {
@@ -103,4 +103,19 @@
   .sofia-mobile-dock button:hover { background: rgb(243 244 246 / 50%); }
   .sofia-mobile-dock button.is-active { background: rgb(255 255 255 / 55%); color: #111827; box-shadow: 0 1px 2px rgb(0 0 0 / .05); }
   .sofia-skip-link { left: 12px; }
+}
+
+/* Compact account actions follow the approved Navbar B treatment. */
+.sofia-account { grid-column:2; }
+.sofia-account button:hover { background:#f2eefb;color:#6656b8; }
+.sofia-account button:disabled { opacity:.45;cursor:default; }
+.sofia-demo-status { margin:0 24px 12px 312px;padding:10px 14px;border:1px solid #e8e1f1;border-radius:12px;background:#faf7ff;display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:12px;color:#756780; }
+.sofia-demo-status strong { color:#66517d; }
+.sofia-demo-status button { margin-left:auto;text-decoration:underline;text-underline-offset:3px; }
+@media(max-width:899px) {
+  .sofia-app-header { height:72px;display:grid;grid-template-columns:1fr auto;padding:0 14px; }
+  .sofia-wordmark .site-title { font-size:24px; }
+  .sofia-account { gap:5px; }
+  .sofia-account-name { display:none; }
+  .sofia-demo-status { margin:0 14px 12px;font-size:11px; }
 }
