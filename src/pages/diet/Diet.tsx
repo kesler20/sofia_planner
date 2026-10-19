@@ -408,7 +408,7 @@ export default function Diet() {
   if (dietsLoading || mealsAreLoading) return <LoadingAnimation />;
   if (!dietsReady) return <p role="alert" className="p-6 text-red-700">Unable to load diets. Refresh before editing.</p>;
   return (
-    <div className="w-full min-w-0 px-4 md:px-64 flex flex-col items-center justify-start min-h-screen bg-white">
+    <div className="flex min-h-screen w-full min-w-0 flex-col items-center justify-start bg-white px-4 md:px-6 lg:px-8">
       {/* Selected meals menu */}
       {workspace === "plan" && selectedMeals.length > 0 && (
         <SelectedMealsMenu

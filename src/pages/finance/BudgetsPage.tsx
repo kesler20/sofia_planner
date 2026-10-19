@@ -848,7 +848,7 @@ export default function BudgetsPage() {
   // ==========================//
 
   return (
-    <div className="md:px-64 h-[88vh] overflow-y-scroll scrollbar-hide">
+    <div className="h-[88vh] w-full min-w-0 overflow-y-scroll px-4 scrollbar-hide md:px-6 lg:px-8">
       {/* Popup menu */}
       {selectedCategories.length > 0 && (
         <PopupMenu
