@@ -1,5 +1,21 @@
 # Requirements
 
+## Fit daily energy decomposition agreed 20 October 2026
+
+Diet Monitoring separates the selected London day's total Fit expenditure into
+estimated Fit maintenance and Fit exercise plus steps, followed by logged intake
+and the existing deficit or surplus. Maintenance is the remainder after removing
+Fit calories attributed to recorded walking and workout intervals. Their sum
+preserves reported total expenditure, avoiding double subtraction of exercise.
+
+Activity attribution uses Google's merged calorie stream grouped by merged
+activity segments. Interval energy includes resting expenditure during activity,
+so the remainder is an estimate rather than an independent BMR measurement.
+Incremental captures replace queried daily activity totals. Missing historical
+activity evidence stays unavailable. A successful covered query with no activity
+provides zero attributed activity. London midnight allocation uses elapsed time
+through daylight saving transitions. The hourly warehouse build owns publication.
+
 ## Rolling maintenance and board width agreed 18 October 2026
 
 Maintenance uses the seven preceding London dates with at least one observed

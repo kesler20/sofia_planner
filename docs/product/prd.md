@@ -1,5 +1,9 @@
 # Sofia Planner
 
+Diet Monitoring displays estimated Fit maintenance plus Fit exercise and steps,
+minus logged intake, for the selected London date. The burn components sum to
+Fit's reported expenditure. Missing activity attribution stays unavailable.
+
 Finance Monitoring compares observed spending with saved budgets at
 /finance/monitoring. The obsolete forecasting route redirects there.
 

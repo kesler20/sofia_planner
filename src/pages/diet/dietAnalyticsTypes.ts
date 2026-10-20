@@ -29,7 +29,7 @@ const monitoringSchema = z.object({ observed_days: finite.int().nonnegative().op
 const componentsSchema = z.object({ calories: finite.nullable(), protein: finite.nullable(), cost: finite.nullable(), taste: finite.nullable(), convenience: finite.nullable() });
 const foodRankingSchema = z.object({ id: z.string(), name: z.string(), components: componentsSchema, servings: finite });
 const rankingSchema = foodRankingSchema.extend({ foods: z.array(foodRankingSchema) });
-const dailyBalanceSchema = z.object({ date: dateSchema, burned: finite.nullable(), intake: finite.nullable(), balance: finite.nullable(), partial: z.boolean(), fit_observed_through: z.string().nullable(), diary_captured_at: z.string() });
+const dailyBalanceSchema = z.object({ date: dateSchema, burned: finite.nullable(), exercise_burned: finite.nullable().optional(), estimated_maintenance: finite.nullable().optional(), intake: finite.nullable(), balance: finite.nullable(), partial: z.boolean(), fit_observed_through: z.string().nullable(), diary_captured_at: z.string() });
 export const dietAnalyticsSchema = z.object({
   schema_version: z.literal(1), revision: z.string(), input_revisions: z.record(z.string()), generated_at: z.string(), as_of: dateSchema,
   monitoring: z.record(z.object({ calories: monitoringSchema, protein: monitoringSchema })),

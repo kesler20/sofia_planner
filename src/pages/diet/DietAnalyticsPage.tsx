@@ -135,7 +135,8 @@ export default function DietAnalyticsPage(props: { loadData?: typeof loadDietDat
       <AnalyticsCard>
         <h2 className="text-sm font-semibold">Daily energy balance · {selectedDate}</h2>
         <div className="my-6 flex flex-wrap items-center justify-center gap-4 text-center sm:gap-8" aria-label="Daily energy equation">
-          <div><p className="text-sm text-gray-500">OUT · Fit calories burned</p><p className="text-3xl font-semibold sm:text-4xl">{format("calories", energy?.burned ?? null)}</p></div><span className="text-3xl">−</span>
+          <div><p className="text-sm text-gray-500">Estimated Fit maintenance</p><p className="text-3xl font-semibold sm:text-4xl">{format("calories", energy?.estimated_maintenance ?? null)}</p></div><span className="text-3xl">+</span>
+          <div><p className="text-sm text-gray-500">Fit exercise + steps</p><p className="text-3xl font-semibold sm:text-4xl">{format("calories", energy?.exercise_burned ?? null)}</p></div><span className="text-3xl">−</span>
           <div><p className="text-sm text-gray-500">IN · Logged MFP intake</p><p className="text-3xl font-semibold sm:text-4xl">{format("calories", energy?.intake ?? null)}</p></div><span className="text-3xl">=</span>
           <div><p className="text-sm text-gray-500">{energy?.balance == null ? "Unavailable" : energy.balance > 0 ? "Deficit" : energy.balance < 0 ? "Surplus" : "Balanced"}</p><p className="text-3xl font-semibold text-violet-700 sm:text-4xl">{format("calories", energy?.balance == null ? null : Math.abs(energy.balance))}</p></div>
         </div>
