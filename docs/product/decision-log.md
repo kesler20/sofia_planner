@@ -1,5 +1,15 @@
 # Requirements
 
+## Digital Twin public disclosure agreed 21 October 2026
+
+The public deployment hosts a Digital Twin overview and privacy policy for the
+personal Google OAuth application. The disclosure names the Google sources the
+automation service can access, the enabled purposes, the private local data lake,
+Redis-backed resources and account-scoped browser storage. It links Google's User
+Data Policy and remains accessible from the Sofia Planner footer. Reusing the
+Sofia Planner product description alone was rejected because it would conflate the
+frontend's Auth0 identity flow with Automation Engine's direct Google API access.
+
 ## Fit daily energy decomposition agreed 20 October 2026
 
 Diet Monitoring separates the selected London day's total Fit expenditure into

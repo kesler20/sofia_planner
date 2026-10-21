@@ -463,6 +463,10 @@ a reset action and sample analytics. It cannot read or write private backend dat
 The personal deployment accepts only its configured owner's identity. Other users
 clone the open-source repository and configure their own hosted version.
 
+The footer links a public Digital Twin privacy policy. A separate public overview
+identifies the personal automation service that requests Google API access and its
+relationship to the private Sofia Planner deployment.
+
 A successful personal sign-in remembers that browser's preference. Later visits
 skip the website, while authentication remains required when the session expires.
 Direct demo links override the preference. About Sofia opens the website explicitly,

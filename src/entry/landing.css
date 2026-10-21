@@ -26,7 +26,7 @@ display:flex;
   gap:24px
 }
 
-.public-header button, .public-footer button {
+.public-header button, .public-footer button, .public-footer a {
 display:inline-flex;
   align-items:center;
   gap:8px;
@@ -172,7 +172,18 @@ color:#9398a0;
 margin-top:10px
 }
 
-.sofia-landing button:focus-visible {
+.public-footer a {
+  color: #0f766e;
+  font-size: .86rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.public-footer a:hover {
+  text-decoration: underline;
+}
+
+.sofia-landing button:focus-visible, .public-footer a:focus-visible {
 outline:3px solid #8070d8;
   outline-offset:4px
 }
