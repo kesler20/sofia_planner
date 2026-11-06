@@ -1,7 +1,7 @@
 # Sofia Planner
 
-Diet Monitoring displays estimated Fit maintenance plus Fit exercise and steps,
-minus logged intake, for the selected London date. The burn components sum to
+Diet Monitoring displays logged intake minus the sum of estimated Fit maintenance
+and Fit exercise and steps for the selected London date. The burn components sum to
 Fit's reported expenditure. Missing activity attribution stays unavailable.
 
 Finance Monitoring compares observed spending with saved budgets at
@@ -166,8 +166,9 @@ explicitly completed zero-intake days, without requiring complete calendar cover
 Logged entries appear through today even when their diary day is unfinished.
 Charts and meal contributions identify these as logged amounts, and partial
 coverage stays visible. Unconfirmed empty days and future observations remain
-absent. Personal ingestion refreshes the journal and publishes these results
-every three minutes while the engine is running. Yesterday and Tomorrow move
+absent. Personal ingestion refreshes the journal every three minutes while the
+engine is running. The hourly Analytics workflow publishes validated results so
+capture and publication writers do not race. Yesterday and Tomorrow move
 the selected date one day at a time. Today returns to the current London date.
 The three controls sit beside the metric selector with circular arrows and a
 calendar icon. The energy equation shows the selected day. Weekly charts, rates
@@ -190,10 +191,18 @@ reliable facts with retained original inputs and field-level sources. Ambiguous
 matches remain unresolved. Matched diet occurrences follow enrichment while
 retaining quantities and repetitions. Creation never logs MFP consumption.
 
-Above the daily rate cards, a large labelled equation shows raw Fit calories
-burned minus logged MFP intake for the London day. Positive means deficit,
-negative means surplus and zero means balanced. Explanatory hints about coverage,
+Above the daily rate cards, a large labelled equation shows logged MFP intake
+minus the parenthesised Fit burn components for the London day. Intake is red
+and burn is green. Positive means surplus in red, negative means deficit in green
+and zero means balanced in neutral grey. Explanatory hints about coverage,
 freshness and partial days are omitted. Missing inputs leave the balance unavailable.
+
+Calorie chart hover details include daily logged intake and total Fit calories
+burned alongside the weekly allowance and plan. Protein hover details include
+daily logged protein alongside cumulative logged protein and plan. Each daily
+value belongs to the hovered London date. Unconfirmed empty days, unavailable
+burn and dates beyond the selected cutoff remain unavailable. Confirmed zero
+intake is shown as zero.
 
 Rankings has Catalogue and Consumed views, metric and direction controls, top-five
 expansion and a Foods switch replacing the same chart pair. Calories, protein and

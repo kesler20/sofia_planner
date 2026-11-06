@@ -22,7 +22,7 @@ export type DietData = { diets: z.infer<typeof DietSchema>[] | null; meals: z.in
 export type ComponentValues = Record<ComponentKey, number | null>;
 export type RankingItem = { id: string; name: string; components: ComponentValues; servings: number; foods: RankingItem[] };
 export type Goal = { weight: number; fat: number; target: number; days: number; maintenance: number };
-export type SeriesPoint = { label: string; plan: number | null; actual: number | null };
+export type SeriesPoint = { label: string; plan: number | null; actual: number | null; intake?: number | null; burned?: number | null };
 
 const pointSchema = z.object({ label: z.string(), plan: finite.nullable(), actual: finite.nullable() });
 const monitoringSchema = z.object({ observed_days: finite.int().nonnegative().optional(), dates: z.array(dateSchema), points: z.array(pointSchema), covered: z.boolean(), partial: z.boolean(), actual: finite.nullable(), dailyRate: finite.nullable(), remaining: finite.nullable(), requiredRate: finite.nullable() });

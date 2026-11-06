@@ -1,5 +1,14 @@
 # Requirements
 
+## Diet equation and daily hover values agreed 5 November 2026
+
+The equation places logged intake before the parenthesised burn components.
+Red intake and surplus and green burn and deficit make the direction visible.
+The displayed signed result follows intake minus burn while the producer retains
+its burn-minus-intake convention. Weekly charts retain their series and add daily
+logged calories, Fit expenditure and protein to hover details so an individual
+day can be read without subtracting cumulative points across missing dates.
+
 ## Digital Twin public disclosure agreed 21 October 2026
 
 The public deployment hosts a Digital Twin overview and privacy policy for the

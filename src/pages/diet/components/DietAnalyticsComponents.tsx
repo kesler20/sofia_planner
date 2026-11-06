@@ -23,7 +23,17 @@ export function Stat(props: { label: string; value: string }) {
   return <AnalyticsCard><p className="text-sm text-gray-500">{props.label}</p><p className="my-2 text-2xl font-semibold tabular-nums text-gray-900">{props.value}</p></AnalyticsCard>;
 }
 export function DietSeries(props: { data: SeriesPoint[]; metric: "calories" | "protein" | "weight" }) {
-  return <ResponsiveContainer width="100%" height={320}><AreaChart data={props.data} margin={{ top: 15, right: 12, left: 4, bottom: 8 }}><CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb"/><XAxis dataKey="label" tick={{ fontSize: 11 }} minTickGap={24}/><YAxis tick={{ fontSize: 11 }} width={54} domain={props.metric === "weight" ? ["auto", "auto"] : undefined}/><Tooltip formatter={value => format(props.metric, Number(value))}/><Area dataKey="actual" name={props.metric === "weight" ? "Measured weight" : "Logged"} type="linear" stroke="#64748b" fill="#94a3b8" fillOpacity={.18} dot={{ r: props.metric === "weight" ? 4 : 3 }} connectNulls={false} isAnimationActive={false}/><Line dataKey="plan" name={props.metric === "weight" ? "Predicted weight" : "Plan"} type="linear" stroke="#15803d" strokeWidth={2} strokeDasharray="6 4" dot={false} isAnimationActive={false}/></AreaChart></ResponsiveContainer>;
+  return <ResponsiveContainer width="100%" height={320}><AreaChart data={props.data} margin={{ top: 15, right: 12, left: 4, bottom: 8 }}><CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb"/><XAxis dataKey="label" tick={{ fontSize: 11 }} minTickGap={24}/><YAxis tick={{ fontSize: 11 }} width={54} domain={props.metric === "weight" ? ["auto", "auto"] : undefined}/><Tooltip filterNull={false} content={({ active, payload, label }) => {
+    const point = payload?.[0]?.payload as SeriesPoint | undefined;
+    if (!active || !point) return null;
+    return <div className="rounded-lg border border-gray-200 bg-white p-3 text-sm shadow-sm">
+      <p className="mb-2 font-semibold">{label}</p>
+      <p className="text-slate-600">{props.metric === "weight" ? "Measured weight" : props.metric === "protein" ? "Cumulative logged protein" : "Logged allowance remaining"} · {format(props.metric, point.actual)}</p>
+      <p className="text-green-700">Plan · {format(props.metric, point.plan)}</p>
+      {props.metric !== "weight" && <p>Daily logged {props.metric === "protein" ? "protein" : "intake"} · {format(props.metric, point.intake ?? null)}</p>}
+      {props.metric === "calories" && <p className="text-green-700">Daily total calories burned · {format("calories", point.burned ?? null)}</p>}
+    </div>;
+  }}/><Area dataKey="actual" name={props.metric === "weight" ? "Measured weight" : "Logged"} type="linear" stroke="#64748b" fill="#94a3b8" fillOpacity={.18} dot={{ r: props.metric === "weight" ? 4 : 3 }} connectNulls={false} isAnimationActive={false}/><Line dataKey="plan" name={props.metric === "weight" ? "Predicted weight" : "Plan"} type="linear" stroke="#15803d" strokeWidth={2} strokeDasharray="6 4" dot={false} isAnimationActive={false}/></AreaChart></ResponsiveContainer>;
 }
 export function DietDonut(props: { rows: { id: string; name: string; value: number; colour?: string }[]; metric: string }) {
   const rows = props.rows.filter(row => row.value > 0);

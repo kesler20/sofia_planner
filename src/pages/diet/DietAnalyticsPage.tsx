@@ -102,6 +102,13 @@ export default function DietAnalyticsPage(props: { loadData?: typeof loadDietDat
   const diet = data?.diets?.find(item => item.name === dietName) ?? data?.diets?.find(item => item.active) ?? data?.diets?.[0];
   const selectedDate = historyDate ?? today;
   const view = monitoringView(data, diet, metric, today, selectedDate);
+  const points = view.points.map((point, index) => {
+    const date = view.dates[index - (view.points[0]?.label === "Start" ? 1 : 0)];
+    const observed = !!date && date <= selectedDate && date <= today;
+    const diary = observed ? data?.actuals?.days.find(day => day.date === date) : undefined;
+    const balance = observed ? data?.analytics?.daily_balance_history?.[date] ?? (data?.analytics?.daily_balance?.date === date ? data.analytics.daily_balance : null) : null;
+    return { ...point, intake: diary && (diary.complete || diary.entries.length > 0) ? diary.entries.reduce((total, entry) => total + entry[metric], 0) : null, burned: balance?.burned ?? null };
+  });
   const contributionDates = weekDates(selectedDate);
   const contributions = data?.actuals?.days.filter(day => contributionDates.includes(day.date) && day.date <= selectedDate && day.date <= today).flatMap(day => day.entries.map(entry => ({ id: entry.id, name: entry.name, value: entry[metric] }))) ?? [];
   const latestDiary = data?.actuals?.days.filter(day => day.entries.length > 0 || day.complete).map(day => day.date).sort().at(-1);
@@ -135,14 +142,14 @@ export default function DietAnalyticsPage(props: { loadData?: typeof loadDietDat
       <AnalyticsCard>
         <h2 className="text-sm font-semibold">Daily energy balance · {selectedDate}</h2>
         <div className="my-6 flex flex-wrap items-center justify-center gap-4 text-center sm:gap-8" aria-label="Daily energy equation">
-          <div><p className="text-sm text-gray-500">Estimated Fit maintenance</p><p className="text-3xl font-semibold sm:text-4xl">{format("calories", energy?.estimated_maintenance ?? null)}</p></div><span className="text-3xl">+</span>
-          <div><p className="text-sm text-gray-500">Fit exercise + steps</p><p className="text-3xl font-semibold sm:text-4xl">{format("calories", energy?.exercise_burned ?? null)}</p></div><span className="text-3xl">−</span>
-          <div><p className="text-sm text-gray-500">IN · Logged MFP intake</p><p className="text-3xl font-semibold sm:text-4xl">{format("calories", energy?.intake ?? null)}</p></div><span className="text-3xl">=</span>
-          <div><p className="text-sm text-gray-500">{energy?.balance == null ? "Unavailable" : energy.balance > 0 ? "Deficit" : energy.balance < 0 ? "Surplus" : "Balanced"}</p><p className="text-3xl font-semibold text-violet-700 sm:text-4xl">{format("calories", energy?.balance == null ? null : Math.abs(energy.balance))}</p></div>
+          <div className="text-red-700"><p className="text-sm">IN · Logged MFP intake</p><p className="text-3xl font-semibold sm:text-4xl">{format("calories", energy?.intake ?? null)}</p></div><span className="text-3xl">− (</span>
+          <div className="text-green-700"><p className="text-sm">Estimated Fit maintenance</p><p className="text-3xl font-semibold sm:text-4xl">{format("calories", energy?.estimated_maintenance ?? null)}</p></div><span className="text-3xl">+</span>
+          <div className="text-green-700"><p className="text-sm">Fit exercise + steps</p><p className="text-3xl font-semibold sm:text-4xl">{format("calories", energy?.exercise_burned ?? null)}</p></div><span className="text-3xl">) =</span>
+          <div className={energy?.balance == null || energy.balance === 0 ? "text-gray-700" : energy.balance > 0 ? "text-green-700" : "text-red-700"}><p className="text-sm">{energy?.balance == null ? "Unavailable" : energy.balance > 0 ? "Deficit" : energy.balance < 0 ? "Surplus" : "Balanced"}</p><p className="text-3xl font-semibold sm:text-4xl">{format("calories", energy?.balance == null ? null : -energy.balance)}</p></div>
         </div>
       </AnalyticsCard>
       <div className="grid gap-4 sm:grid-cols-3"><Stat label={`Average logged day${view.observed_days !== undefined ? ` (${view.observed_days} days)` : ""}`} value={format(metric, view.dailyRate)}/><Stat label="Remaining logged allowance/day" value={format(metric, view.requiredRate)}/><Stat label="Total remaining" value={format(metric, view.remaining)}/></div>
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(260px,1fr)]"><AnalyticsCard><div className="flex flex-wrap justify-between gap-3"><h2 className="text-lg font-semibold">{metric === "protein" ? "Protein progress" : "Calorie allowance"}</h2><span className="text-xl font-semibold">{format(metric, metric === "protein" ? view.actual : view.remaining)}</span></div><DietSeries data={view.points} metric={metric}/><div className="flex flex-wrap justify-center gap-5 text-xs text-gray-500"><span>Solid · Logged</span><span>Dashed · Plan</span></div></AnalyticsCard><AnalyticsCard><DietDonut rows={contributions} metric={metric}/></AnalyticsCard></div>
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(260px,1fr)]"><AnalyticsCard><div className="flex flex-wrap justify-between gap-3"><h2 className="text-lg font-semibold">{metric === "protein" ? "Protein progress" : "Calorie allowance"}</h2><span className="text-xl font-semibold">{format(metric, metric === "protein" ? view.actual : view.remaining)}</span></div><DietSeries data={points} metric={metric}/><div className="flex flex-wrap justify-center gap-5 text-xs text-gray-500"><span>Solid · Logged</span><span>Dashed · Plan</span></div></AnalyticsCard><AnalyticsCard><DietDonut rows={contributions} metric={metric}/></AnalyticsCard></div>
     </>}
     {page === "rankings" && <>
       <h1 className="text-2xl font-semibold">Meal Rankings</h1>
